@@ -4,6 +4,28 @@ A full-stack, real-time Electrical Power Monitoring System (EPMS) dashboard desi
 
 ---
 
+## Screenshots
+
+### Dashboard Overview
+![Dashboard](screenshots/dashboard.webp)
+
+### One-Line Diagram
+![One-Line Diagram](screenshots/one-line.webp)
+
+### Meter Detail
+![Meters](screenshots/meters.webp)
+
+### Alarm Management
+![Alarms](screenshots/alarms.webp)
+
+### Trending
+![Trending](screenshots/trending.webp)
+
+### Settings
+![Settings](screenshots/settings.webp)
+
+---
+
 ## Demo
 
 > Start the backend and frontend locally using the instructions below. The dashboard will populate with live simulated data within 5 seconds of startup.
