@@ -1,0 +1,92 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base:     #0a0a0a;
+  --bg-surface:  #111111;
+  --bg-elevated: #1a1a1a;
+  --bg-card:     #1e1e1e;
+  --bg-hover:    #252525;
+  --border:      #2a2a2a;
+  --border-bright: #383838;
+
+  --text-primary:   #e8e8e8;
+  --text-secondary: #a0a0a0;
+  --text-muted:     #606060;
+
+  --accent:         #00b4d8;
+  --accent-dim:     rgba(0, 180, 216, 0.15);
+  --accent-border:  rgba(0, 180, 216, 0.3);
+
+  --status-ok:      #22c55e;
+  --status-ok-dim:  rgba(34, 197, 94, 0.12);
+  --status-warn:    #f59e0b;
+  --status-warn-dim: rgba(245, 158, 11, 0.12);
+  --status-crit:    #ef4444;
+  --status-crit-dim: rgba(239, 68, 68, 0.12);
+  --status-off:     #4b5563;
+
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-lg: 0 4px 24px rgba(0,0,0,0.6);
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+/* Utility */
+.mono { font-family: var(--font-mono); }
+.text-ok   { color: var(--status-ok); }
+.text-warn { color: var(--status-warn); }
+.text-crit { color: var(--status-crit); }
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge-ok   { background: var(--status-ok-dim);   color: var(--status-ok); }
+.badge-warn { background: var(--status-warn-dim);  color: var(--status-warn); }
+.badge-crit { background: var(--status-crit-dim);  color: var(--status-crit); }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+}
+
+button {
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+a { text-decoration: none; color: inherit; }
+
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; }
