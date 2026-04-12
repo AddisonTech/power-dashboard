@@ -1,6 +1,9 @@
 import React from 'react'
 import { Settings, Database, Wifi, Bell } from 'lucide-react'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const WS_URL = API_URL.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/ws/live'
+
 export default function SettingsPage() {
   return (
     <div>
@@ -16,8 +19,8 @@ export default function SettingsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
-              { label: 'API Endpoint',      value: 'http://localhost:8000' },
-              { label: 'WebSocket',          value: 'ws://localhost:8000/ws/live' },
+              { label: 'API Endpoint',      value: API_URL },
+              { label: 'WebSocket',          value: WS_URL },
               { label: 'Poll Interval',      value: '5 seconds' },
               { label: 'WS Broadcast Rate',  value: '2 seconds' },
             ].map(({ label, value }) => (

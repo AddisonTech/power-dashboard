@@ -107,6 +107,25 @@ The dashboard will be available at `http://localhost:5173`.
 
 ---
 
+## Environment Variables
+
+### Frontend
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_API_URL` | Base URL of the backend API (used for HTTP requests and WebSocket connections) | `http://localhost:8000` |
+
+Create a `frontend/.env` file (or copy `frontend/.env.example`) and set `VITE_API_URL` to your deployed backend URL before running `npm run build`. For example, when deploying to Render:
+
+```
+VITE_API_URL=https://power-dashboard-api.onrender.com
+```
+
+The WebSocket URL is derived automatically from `VITE_API_URL` by replacing `http://` with `ws://` (or `https://` with `wss://`).
+
+---
+
+
 ## Features
 
 1. **Live WebSocket feed** - All meter readings streamed to the browser with under 5-second latency, with automatic reconnection on disconnect.
