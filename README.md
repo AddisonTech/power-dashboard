@@ -2,6 +2,10 @@
 
 A full-stack, real-time Electrical Power Monitoring System (EPMS) dashboard designed for industrial data center and facility power distribution environments. The system continuously polls simulated power meters, stores time-series readings, evaluates alarm conditions against ISA 18.2 thresholds, and delivers live data to a web-based SCADA-style interface via WebSocket.
 
+**Live Demo:** [https://power-dashboard-vd3w.onrender.com](https://power-dashboard-vd3w.onrender.com)
+
+> **Note:** The free tier backend may take 30-50 seconds to wake up on first load.
+
 ---
 
 ## Screenshots
