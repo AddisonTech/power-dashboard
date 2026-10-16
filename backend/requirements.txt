@@ -1,4 +1,4 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 pydantic==2.14.1
-bms-alarm-triage-agent @ git+https://github.com/AddisonTech/bms-alarm-triage-agent@6617f911352ca3408126973a3faaa34040ee77c8
+bms-alarm-triage-agent @ git+https://github.com/AddisonTech/bms-alarm-triage-agent@1c32b20747dd204f96ae25e3006151f8b178bb80
