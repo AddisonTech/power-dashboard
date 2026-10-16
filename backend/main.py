@@ -258,12 +258,21 @@ def export_journal(request: Request, start: Optional[str] = None, end: Optional[
 
 
 @app.get("/api/triage/event")
-def triage_event(request: Request):
-    """The most recent alarm event, if any. Cheap; used to offer the triage button."""
+def triage_event(request: Request, time_zone: Optional[str] = None):
+    """The most recent alarm event, if any. Cheap; used to offer the triage button.
+
+    With time_zone, also the label for each UTC offset the event touches in
+    that zone, so the header is labeled exactly as the agent's text will be.
+    """
+    try:
+        zone_name = triage.check_zone(time_zone)
+    except triage.BadZone as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     event = triage_export.latest_event(_collector(request).clock())
     if event is None:
-        return {"event": None}
-    return {"event": {
+        return {"event": None, "zone": triage.zone_labels(zone_name, [])}
+    zone = triage.zone_labels(zone_name, [event["start"], event["first_alarm"], event["last_alarm"], event["end"]])
+    return {"zone": zone, "event": {
         "first_alarm": triage_export.iso(event["first_alarm"]),
         "last_alarm": triage_export.iso(event["last_alarm"]),
         "start": triage_export.iso(event["start"]),
@@ -276,6 +285,9 @@ def triage_event(request: Request):
 class TriageRequest(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None
+    # The viewer's IANA zone, from the browser. Every time in the agent's
+    # text is written in it, labeled. Default UTC.
+    time_zone: Optional[str] = Field(None, max_length=64)
 
 
 @app.post("/api/triage")
@@ -286,7 +298,9 @@ def run_triage(request: Request, body: Optional[TriageRequest] = None):
     if body and (body.start or body.end):
         start, end = _window(request, body.start, body.end, None)
     try:
-        return triage.run(now, start, end)
+        return triage.run(now, start, end, time_zone=body.time_zone if body else None)
+    except triage.BadZone as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except triage.NoEvent as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except triage.AgentUnavailable as exc:

@@ -220,3 +220,44 @@ def test_a_1_1_database_gains_the_status_columns(tmp_path, monkeypatch):
         assert set(database.STATE_FIELDS) <= columns
     finally:
         database.close()
+
+
+# ------------------------------------------------------------ time zones
+
+@pytest.mark.parametrize("zone_name, label", [("America/New_York", "EDT"), ("UTC", "UTC")])
+def test_header_and_card_text_agree_in_the_viewers_zone(zone_name, label):
+    """The header's first alarm, converted to the viewer's zone, is the time
+    the card's sentence states, with the same label."""
+    import re
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    _c, now = drive("utility_outage", duration=110)
+    out = triage.run(now, time_zone=zone_name)
+    assert out["zone"]["name"] == zone_name
+    assert set(out["zone"]["labels"].values()) == {label}
+    header = datetime.fromisoformat(out["event"]["first_alarm"]).astimezone(ZoneInfo(zone_name))
+    item = out["triage"]["items"][0]
+    stated = re.findall(r"\b(\d\d:\d\d:\d\d) ([A-Z]+)\b", item["reason"])
+    assert stated[0] == (header.strftime("%H:%M:%S"), label)
+    assert {lab for _t, lab in stated} == {label}
+    for consequence in item["consequences"]:
+        start = datetime.fromisoformat(consequence["start"]).astimezone(ZoneInfo(zone_name))
+        assert f"{start:%H:%M:%S} {label}" in consequence["finding"]
+    assert out["event"]["first_alarm"].endswith("+00:00")
+
+
+def test_each_zone_is_cached_on_its_own():
+    _c, now = drive("pf_drop", event_scans=120, duration=60)
+    ny = triage.run(now, time_zone="America/New_York")
+    utc = triage.run(now, time_zone="UTC")
+    assert ny["cached"] is False and utc["cached"] is False
+    assert "EDT" in ny["triage"]["items"][0]["reason"]
+    assert "UTC" in utc["triage"]["items"][0]["reason"]
+
+
+def test_a_bad_zone_is_refused():
+    with pytest.raises(triage.BadZone):
+        triage.check_zone("Mars/Olympus")
+    assert triage.check_zone(None) == "UTC"
+    assert triage.check_zone("") == "UTC"

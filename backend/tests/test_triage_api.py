@@ -21,7 +21,7 @@ def test_export_returns_the_journal_format(client):
     assert res.headers["content-disposition"].startswith('attachment; filename="alarm-journal-')
     doc = res.json()
     assert doc["format"] == "bms-triage-journal" and doc["version"] == 1
-    assert doc["source"] == "power-dashboard 1.2.0"
+    assert doc["source"] == "power-dashboard 1.2.1"
     parsed = agent_journal.parse(doc)
     assert parsed.points and parsed.series
 
@@ -129,4 +129,32 @@ def test_the_agent_is_pinned_to_one_release():
 def test_the_installed_agent_is_0_2():
     import bms_alarm_triage
 
-    assert bms_alarm_triage.__version__.startswith("0.2.")
+    assert bms_alarm_triage.__version__ == "0.2.1"
+
+
+@pytest.mark.parametrize("zone_name", ["America/New_York", "UTC"])
+def test_the_event_and_the_text_use_the_viewers_zone(client, zone_name):
+    import re
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    triage.clear_cache()
+    event = client.get("/api/triage/event", params={"time_zone": zone_name}).json()
+    assert event["zone"]["name"] == zone_name
+    labels = event["zone"]["labels"]
+    res = client.post("/api/triage", json={"time_zone": zone_name})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["triage"]["time_zone"]["name"] == zone_name
+    assert body["zone"]["labels"] == labels  # header and text labeled from one map
+    for item in body["triage"]["items"]:
+        for clock, label in re.findall(r"\b(\d\d:\d\d:\d\d) ([A-Z][A-Za-z0-9+:-]*)", item["reason"] + item["finding"]):
+            assert label in body["zone"]["labels"].values()
+    first = datetime.fromisoformat(body["event"]["first_alarm"]).astimezone(ZoneInfo(zone_name))
+    offset = first.strftime("%z")
+    assert f"{offset[:3]}:{offset[3:]}" in body["zone"]["labels"]
+
+
+def test_a_bad_zone_is_a_400(client):
+    assert client.post("/api/triage", json={"time_zone": "Mars/Olympus"}).status_code == 400
+    assert client.get("/api/triage/event", params={"time_zone": "Mars/Olympus"}).status_code == 400
