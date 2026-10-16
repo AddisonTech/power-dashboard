@@ -622,6 +622,101 @@ select:focus, input[type="text"]:focus { border-color: var(--accent); }
 .wake-preview ul { padding-left: 18px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 
 /* ===================================================================== */
+/* Triage                                                                 */
+/* ===================================================================== */
+
+.triage-offer { justify-content: flex-start; }
+.triage-offer-msg { flex: 1; min-width: 0; }
+.triage-offer-close { width: 26px; height: 26px; color: var(--accent); }
+
+.tri-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tri-event { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; }
+.tri-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tri-intro { display: flex; flex-direction: column; gap: 10px; max-width: 80ch; color: var(--text-secondary); }
+
+.tri-list { display: flex; flex-direction: column; gap: 14px; }
+.tri-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--p4);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "why  evid"
+    "step evid"
+    "cq   cq"
+    "foot foot";
+  column-gap: 22px; row-gap: 12px;
+  min-width: 0;
+}
+.tri-item.p1 { border-left-color: var(--p1); }
+.tri-item.p2 { border-left-color: var(--p2); }
+.tri-item.p3 { border-left-color: var(--p3); }
+.tri-item-head { grid-area: head; display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+.tri-rank {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+  font-family: var(--font-mono); font-weight: 700;
+}
+.tri-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tri-label { font-size: 16px; font-weight: 650; }
+.tri-point { overflow-wrap: anywhere; }
+.tri-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.tri-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  background: var(--bg-elevated); border: 1px solid var(--border-bright); color: var(--text-secondary);
+}
+.tri-chip b { font-family: var(--font-mono); color: var(--text-primary); }
+.tri-chip-cause { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+
+.tri-say { display: flex; flex-direction: column; gap: 3px; max-width: 70ch; }
+.tri-say:not(.tri-say-step) { grid-area: why; }
+.tri-say-step { grid-area: step; }
+.tri-say-label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+.tri-say-step .tri-say-label { color: var(--accent); }
+
+.tri-evidence { grid-area: evid; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tri-chart { width: 100%; height: 72px; display: block; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-md); }
+.tri-chart-empty { display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; }
+.tri-line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.tri-limit { stroke: var(--p2); stroke-width: 1; stroke-dasharray: 4 3; }
+.tri-past { fill: var(--p2-dim); }
+
+.tri-cq { grid-area: cq; border-top: 1px solid var(--border); padding-top: 10px; }
+.tri-alone { grid-area: cq; }
+.tri-cq-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 2px 0;
+  color: var(--text-secondary); font-weight: 600; font-size: 13px; text-align: left;
+}
+.tri-cq-toggle:hover { color: var(--text-primary); }
+.tri-cq-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 10px 0 0 21px; }
+.tri-cq-list li { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-left: 10px; border-left: 2px solid var(--border-bright); }
+.tri-cq-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tri-cq-label { font-weight: 600; }
+.tri-cq-why { color: var(--text-secondary); }
+
+.tri-foot { grid-area: foot; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tri-writer {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 650;
+  border: 1px dashed var(--border-bright); color: var(--text-secondary);
+}
+.tri-writer::before { content: "Written by"; font-weight: 500; color: var(--text-muted); }
+.tri-writer.haiku { border-style: solid; border-color: var(--accent-border); color: var(--accent); }
+
+.tri-aside { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.tri-aside li { display: flex; flex-direction: column; gap: 1px; overflow-wrap: anywhere; }
+.tri-note { display: flex; align-items: flex-start; gap: 6px; max-width: 90ch; }
+.tri-note svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ===================================================================== */
 /* Responsive                                                             */
 /* ===================================================================== */
 
@@ -700,8 +795,17 @@ select:focus, input[type="text"]:focus { border-color: var(--accent); }
   .alarm-details, .shelve-form { margin-left: 0; }
   .state-list-row { grid-template-columns: 1fr; gap: 4px; }
 
+  .tri-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "why" "evid" "step" "cq" "foot";
+    padding: 14px;
+  }
+  .tri-controls { align-items: stretch; }
+  .tri-actions .btn { flex: 1; }
+  .tri-cq-list { margin-left: 4px; }
+
   .bottom-nav {
-    display: grid; grid-template-columns: repeat(6, 1fr);
+    display: grid; grid-template-columns: repeat(7, 1fr);
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
@@ -710,7 +814,7 @@ select:focus, input[type="text"]:focus { border-color: var(--accent); }
   }
   .bottom-item {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    font-size: 10.5px; font-weight: 550; color: var(--text-muted);
+    font-size: 10px; font-weight: 550; color: var(--text-muted);
   }
   .bottom-item.active { color: var(--accent); }
   .bottom-icon { position: relative; display: inline-flex; }

@@ -17,6 +17,7 @@ The demo runs on **simulated data**: no real facility, customer, or equipment is
 - **ISA 18.2 alarm handling** with acknowledge, shelve, return to normal, designed suppression, an alarm journal, and a master alarm database. See [Alarm management](#alarm-management-isa-182).
 - **A live one-line diagram** that follows the power path, showing which conductors are carrying load, energized, or dead.
 - **Meter detail and trends** for every device, with 1 hour, 24 hour, and 7 day history and CSV export.
+- **Alarm triage.** The dashboard raises the alarm flood; the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent) cuts it to a short ranked list. After an event, *Triage this event* puts the root cause first with its consequences folded underneath. See [Alarm triage](#alarm-triage).
 - **Try it yourself.** Open *About this demo* and trigger a utility outage, voltage sag, PDU overload, or power factor drop. Events also happen on their own every few minutes.
 
 ---
@@ -50,6 +51,31 @@ What else is implemented:
 - **Performance KPIs:** annunciated alarm rate over the last 10 minutes compared with the ISA 18.2 targets (about 1 per 10 minutes acceptable, 2 manageable, 10 or more is a flood), plus counts by priority and state. The demo deliberately runs events faster than a real site, so the rate often shows "Above target".
 
 ![Alarm list with an expanded alarm showing consequence and operator response](screenshots/alarms.webp)
+
+---
+
+## Alarm triage
+
+ISA 18.2 alarm handling keeps the list honest, but a utility outage still annunciates six alarms in twelve seconds: utility failure, both UPS systems on battery, the generator running, the transfer switch on the emergency source, and the generator frequency dip when the load lands. Only one of those is the thing that happened.
+
+The **Triage** tab hands the alarm journal and trend history for the window around the latest event to the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent), version 0.2.0, pinned in `backend/requirements.txt` to the commit that release was merged as, and shows what comes back:
+
+- **Root cause first.** The agent's electrical rule set ranks the cause and folds its consequences under it. A utility failure explains UPS on battery, the generator start, the ATS transfer, and the frequency dip; a voltage sag explains the UPS ride through; a PDU overload explains its own lower stage and the load alarm on the UPS that feeds it; low power factor stands on its own.
+- **Trend evidence** for every item, the stretch it spent past its limit, and the rule that ranked it.
+- **A next step**, always a diagnostic one: a verb from a closed list, the item's own equipment as the target, never a control action.
+- **Who wrote the text.** A fixed template writes it from each item's own evidence. Claude Haiku writes it only when the server has `TRIAGE_ANTHROPIC_KEY` set, and the same checks apply to every reply either way. The hosted demo has no key, so the demo shows the template.
+
+After a demo event finishes, a *Triage this event* button appears under the top bar. On the simulated utility outage the journal holds 24 entries (6 alarms, 6 returns, and 12 acknowledgements and suppressions) and the agent returns 1 ranked item, the utility failure, with the other 5 alarms under it. A run takes about 65 ms once the agent is loaded; the first one loads it on demand so startup stays fast on the free tier.
+
+It is read only. The agent gets a copy of the journal and history for the window and has no path back to the alarm manager or any meter.
+
+**The export.** `GET /api/export/journal` returns the alarm journal and trend history for a window as one JSON document in the agent's input format ([bms-triage-journal, version 1](https://github.com/AddisonTech/bms-alarm-triage-agent/blob/main/docs/JOURNAL_FORMAT.md)): every alarm point with its limit, deadband, priority, and meaning, the equipment topology, every journal entry, and the trend samples behind each point. The Triage tab links the export for the triaged window. During an event, history is stored at scan rate rather than every 10 seconds, because a voltage sag lasts a few seconds and the frequency dip about one.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/export/journal?minutes=60` | Journal and trend history for the last N minutes (or `start` and `end`, ISO 8601), up to 24 hours |
+| `GET /api/triage/event` | The latest alarm event: first and last alarm and its window |
+| `POST /api/triage` | Run the agent on the latest event (or a `start` and `end` window) and return the ranked list |
 
 ---
 
@@ -96,18 +122,18 @@ Demo scenarios:
   Simulator  or  Modbus TCP meters
          |
          v   every 2 s
-   Collector scan loop  ------------>  SQLite (history every 10 s, alarm journal)
-         |
-         +--> Alarm manager (ISA 18.2 state machine)
-         |
-         v
-   WebSocket /ws/live  ------------>  React front end
-   REST /api/*         <------------  (acknowledge, shelve, history, demo events)
+   Collector scan loop  ------------>  SQLite (history every 10 s, every scan during an event, alarm journal)
+         |                                    |
+         +--> Alarm manager (ISA 18.2)        +--> journal export --> BMS Alarm Triage Agent (read only)
+         |                                                                     |
+         v                                                                     v
+   WebSocket /ws/live  ------------>  React front end  <-----  POST /api/triage, ranked list
+   REST /api/*         <------------  (acknowledge, shelve, history, demo events, export)
 ```
 
 - **Backend:** FastAPI. A single collector owns the scan loop, the latest readings, the alarm manager, and the set of WebSocket clients. On startup in simulation mode it generates 24 hours of history (with past events and simulated operator acknowledgements) in well under a second, so trends and the journal are never empty.
 - **WebSocket feed:** on connect the server sends a `snapshot` (meters, readings, alarms, summary, demo info). After that it pushes `readings` every scan and `alarms` whenever the alarm list changes or an operator acts. Clients can send `{"type": "ping"}` and get a `pong`.
-- **Front end:** React and Vite with hash based routes (`/#/alarms`), so any page can be refreshed or shared on a static host with no rewrite rules. The live feed is a single WebSocket with automatic reconnection and a stale connection watchdog. Chart heavy pages are loaded on demand, so the first load is about 72 kB of gzipped JavaScript.
+- **Front end:** React and Vite with hash based routes (`/#/alarms`), so any page can be refreshed or shared on a static host with no rewrite rules. The live feed is a single WebSocket with automatic reconnection and a stale connection watchdog. Chart heavy pages and the Triage tab are loaded on demand, so the first load is about 74 kB of gzipped JavaScript.
 - **Cold starts:** the static front end never sleeps. While the API wakes up it shows a progress screen and pings `/api/health` (which is also what wakes the server), then switches to the live view as soon as the first snapshot arrives. If the connection drops later, the page keeps the last data, dims it, and shows "Reconnecting".
 
 ### Stack
@@ -117,6 +143,7 @@ Demo scenarios:
 | API and WebSocket | Python 3.13, FastAPI 0.111, Uvicorn |
 | Storage | SQLite (WAL mode) |
 | Field protocol | Modbus TCP via pymodbus (optional) |
+| Alarm triage | BMS Alarm Triage Agent 0.2.0, pinned to its release commit |
 | Front end | React 18, Vite 5, React Router 6 |
 | Charts and icons | Recharts (trend pages), inline SVG, Lucide |
 | Tests | pytest, FastAPI TestClient, Vitest |
@@ -157,7 +184,7 @@ cd backend && pip install -r requirements-dev.txt && python -m pytest -q
 cd frontend && npm test
 ```
 
-The backend suite covers the simulator (physical consistency, the outage sequence, every scenario), the alarm state machine (every ISA 18.2 transition, deadband, delays, shelving, suppression, KPIs), the WebSocket feed (snapshot, streaming, ping, live alarm updates after operator actions), the REST API, and Modbus decoding. The front end suite covers the feed reducer and URL handling.
+The backend suite covers the simulator (physical consistency, the outage sequence, every scenario), the alarm state machine (every ISA 18.2 transition, deadband, delays, shelving, suppression, KPIs), the WebSocket feed (snapshot, streaming, ping, live alarm updates after operator actions), the REST API, Modbus decoding, and the triage tie-in (the journal export checked against the agent's own parser, every demo scenario triaged from the real simulator, the event window, scan rate history during events, and the export and triage endpoints). The front end suite covers the feed reducer, URL handling, and the Triage tab (root cause first, consequences collapsed, trend evidence, the writer label).
 
 ---
 
@@ -178,6 +205,7 @@ Backend settings are environment variables (see `backend/config.py`):
 | `DEMO_EVENTS_ENABLED` | `true` | Allow visitors to trigger events from the UI |
 | `CORS_ORIGINS` | `*` | Comma separated allowed origins |
 | `DB_PATH` | `power_dashboard.db` | SQLite file |
+| `TRIAGE_ANTHROPIC_KEY` | unset | Optional. When set, Claude Haiku writes the triage text; otherwise the template does. Not set on the hosted demo |
 
 Front end: `VITE_API_URL` is the API base URL used at build time. It is optional. A production build without it points at the live demo API, `https://power-dashboard-api.onrender.com`, and the dev server without it proxies to the local backend.
 
@@ -215,11 +243,14 @@ backend/
   alarms.py             ISA 18.2 alarm state machine
   config.py             Settings, topology, master alarm database
   database.py           SQLite history and alarm journal
+  triage_export.py      Alarm journal export in the triage agent's format, event window
+  triage.py             Runs the triage agent on the latest event
   modbus_source.py      Modbus TCP polling (optional)
   tests/
 frontend/
   src/services/         WebSocket feed, REST client
-  src/pages/            Overview, One-Line, Meters, Alarms, Trends, System
+  src/pages/            Overview, One-Line, Meters, Alarms, Triage, Trends, System
+  src/lib/triage.js     Triage tab helpers (evidence text, chart geometry)
   src/components/       Wake screen, About panel, alarm banner, badges, charts
 render.yaml             Render Blueprint
 ```

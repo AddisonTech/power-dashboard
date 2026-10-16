@@ -144,7 +144,11 @@ class Collector:
 
         alarms_changed = self.alarms.evaluate(readings, now)
 
-        if now - self._last_history >= config.HISTORY_INTERVAL:
+        # History is stored every HISTORY_INTERVAL, and every scan while
+        # something is abnormal, the way a historian stores on exception. A
+        # voltage sag lasts a few seconds and a generator frequency dip about
+        # one, so the trend behind an alarm has to be at scan rate to show it.
+        if now - self._last_history >= config.HISTORY_INTERVAL or alarms_changed or self.abnormal():
             database.insert_readings(r for r in readings.values() if r.get("voltage") is not None)
             self._last_history = now
         if now - self._last_prune >= 3600:
@@ -158,6 +162,12 @@ class Collector:
         if alarms_changed or self.scan_count % 5 == 0:
             await self.broadcast_alarms(now)
         return readings
+
+    def abnormal(self) -> bool:
+        """An event is playing out or an alarm condition is present."""
+        if self.sim is not None and self.sim.scenario is not None:
+            return True
+        return any(p.condition for p in self.alarms.points.values())
 
     # ------------------------------------------------------------------
     # Views

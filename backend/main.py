@@ -3,14 +3,18 @@
 import json
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 import config
 import database
+import triage
+import triage_export
 from alarms import AlarmActionError
 from collector import Collector
 
@@ -202,6 +206,93 @@ async def trigger_event(name: str, request: Request):
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     return info
+
+
+# ---------------------------------------------------------------------------
+# Alarm journal export and triage
+#
+# The export is the alarm journal and trend history for a window, in the
+# triage agent's input format (bms-triage-journal, version 1). POST
+# /api/triage runs the agent on the window around the most recent event and
+# returns the ranked list: root cause first, its consequences collapsed
+# under it, trend evidence, the next step, and which writer wrote the text.
+# ---------------------------------------------------------------------------
+
+def _epoch(text: Optional[str], name: str) -> Optional[float]:
+    if text in (None, ""):
+        return None
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{name} must be an ISO 8601 time")
+    if moment.tzinfo is None:
+        raise HTTPException(status_code=400, detail=f"{name} needs a timezone offset")
+    return moment.timestamp()
+
+
+def _window(request: Request, start: Optional[str], end: Optional[str], minutes: Optional[float]):
+    now = _collector(request).clock()
+    t0, t1 = _epoch(start, "start"), _epoch(end, "end")
+    if t0 is None and t1 is None:
+        span = (minutes or 60) * 60
+        t1, t0 = now, now - span
+    elif t0 is None or t1 is None:
+        raise HTTPException(status_code=400, detail="Give both start and end, or neither")
+    if t1 <= t0:
+        raise HTTPException(status_code=400, detail="end must be after start")
+    if t1 - t0 > config.EXPORT_MAX_MINUTES * 60:
+        raise HTTPException(status_code=400, detail=f"The window is limited to {config.EXPORT_MAX_MINUTES} minutes")
+    return t0, t1
+
+
+@app.get("/api/export/journal")
+def export_journal(request: Request, start: Optional[str] = None, end: Optional[str] = None,
+                   minutes: Optional[float] = None):
+    """Alarm journal and trend history for a window, in the triage agent's format."""
+    if minutes is not None and not 0 < minutes <= config.EXPORT_MAX_MINUTES:
+        raise HTTPException(status_code=400, detail=f"minutes must be 1 to {config.EXPORT_MAX_MINUTES}")
+    t0, t1 = _window(request, start, end, minutes)
+    doc = triage_export.build_journal(t0, t1)
+    name = "alarm-journal-" + datetime.fromtimestamp(t1, timezone.utc).strftime("%Y%m%d-%H%M%S") + ".json"
+    return JSONResponse(doc, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/triage/event")
+def triage_event(request: Request):
+    """The most recent alarm event, if any. Cheap; used to offer the triage button."""
+    event = triage_export.latest_event(_collector(request).clock())
+    if event is None:
+        return {"event": None}
+    return {"event": {
+        "first_alarm": triage_export.iso(event["first_alarm"]),
+        "last_alarm": triage_export.iso(event["last_alarm"]),
+        "start": triage_export.iso(event["start"]),
+        "end": triage_export.iso(event["end"]),
+        "alarms": event["alarms"],
+        "settled": event["settled"],
+    }}
+
+
+class TriageRequest(BaseModel):
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
+@app.post("/api/triage")
+def run_triage(request: Request, body: Optional[TriageRequest] = None):
+    """Run the triage agent on the latest event (or a given window)."""
+    now = _collector(request).clock()
+    start = end = None
+    if body and (body.start or body.end):
+        start, end = _window(request, body.start, body.end, None)
+    try:
+        return triage.run(now, start, end)
+    except triage.NoEvent as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except triage.AgentUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except triage.BadInput as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

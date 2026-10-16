@@ -6,7 +6,7 @@ public demo (simulated data) and a real site (Modbus TCP polling).
 
 import os
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -68,6 +68,14 @@ SHELVE_MAX_MIN = 60
 
 # Nominal system frequency
 NOMINAL_FREQUENCY = 60.0
+
+# Triage: the alarm journal export and the triage agent tie-in
+TRIAGE_SITE = "SIM-DC"             # site label on exported point ids (synthetic)
+TRIAGE_EVENT_GAP_S = 300           # alarms closer than this belong to one event
+TRIAGE_PRE_S = 300                 # trend history kept before the event starts
+TRIAGE_POST_S = 300                # and after its last alarm
+TRIAGE_MAX_WINDOW_S = 3600         # longest window triaged in one run
+EXPORT_MAX_MINUTES = 1440          # longest window the export endpoint returns
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +173,9 @@ ALARM_PRIORITIES = {
 #   on_delay  consecutive scans in alarm before annunciating (anti-chatter)
 #   off_delay consecutive scans normal before returning to normal
 #   suppress  designed (state based) suppression rule, see alarms.py
+#   signal    what the alarm means to the triage agent's electrical rules
+#             (see triage_export.py); alarms without one are exported as
+#             plain alarms
 # ---------------------------------------------------------------------------
 
 def _pdu_alarms(pdu: str):
@@ -172,6 +183,7 @@ def _pdu_alarms(pdu: str):
     return [
         {
             "tag": f"{pdu}.LOAD.HI", "meter_id": pdu, "parameter": "load_pct", "kind": "HI",
+            "signal": "pdu_overload",
             "setpoint": 80.0, "deadband": 3.0, "priority": 3, "on_delay": 2, "off_delay": 2,
             "unit": "%",
             "message": f"{name} load high",
@@ -180,6 +192,7 @@ def _pdu_alarms(pdu: str):
         },
         {
             "tag": f"{pdu}.LOAD.HIHI", "meter_id": pdu, "parameter": "load_pct", "kind": "HIHI",
+            "signal": "pdu_overload",
             "setpoint": 90.0, "deadband": 3.0, "priority": 2, "on_delay": 2, "off_delay": 2,
             "unit": "%",
             "message": f"{name} load very high",
@@ -194,6 +207,7 @@ def _ups_alarms(ups: str):
     return [
         {
             "tag": f"{ups}.ONBATT", "meter_id": ups, "parameter": "on_battery", "kind": "DISCRETE",
+            "signal": "ups_on_battery",
             "setpoint": 1, "deadband": 0, "priority": 1, "on_delay": 0, "off_delay": 1,
             "unit": "",
             "message": f"{name} on battery",
@@ -202,6 +216,7 @@ def _ups_alarms(ups: str):
         },
         {
             "tag": f"{ups}.LOAD.HI", "meter_id": ups, "parameter": "load_pct", "kind": "HI",
+            "signal": "ups_load_high",
             "setpoint": 50.0, "deadband": 2.0, "priority": 2, "on_delay": 2, "off_delay": 2,
             "unit": "%",
             "message": f"{name} load above 2N limit",
@@ -222,6 +237,7 @@ def _ups_alarms(ups: str):
 ALARM_POINTS = [
     {
         "tag": "UTIL-1.FAIL", "meter_id": "UTIL-1", "parameter": "source_failed", "kind": "DISCRETE",
+        "signal": "utility_failure",
         "setpoint": 1, "deadband": 0, "priority": 2, "on_delay": 0, "off_delay": 1,
         "unit": "",
         "message": "Utility power failure",
@@ -230,6 +246,7 @@ ALARM_POINTS = [
     },
     {
         "tag": "UTIL-1.V.LO", "meter_id": "UTIL-1", "parameter": "voltage", "kind": "LO",
+        "signal": "voltage_sag",
         "setpoint": 432.0, "deadband": 4.8, "priority": 3, "on_delay": 0, "off_delay": 1,
         "unit": "V",
         "message": "Utility voltage low (sag)",
@@ -240,6 +257,7 @@ ALARM_POINTS = [
     },
     {
         "tag": "GEN-1.F.LO", "meter_id": "GEN-1", "parameter": "frequency", "kind": "LO",
+        "signal": "frequency_low",
         "setpoint": 59.5, "deadband": 0.1, "priority": 3, "on_delay": 0, "off_delay": 1,
         "unit": "Hz",
         "message": "Generator frequency low",
@@ -249,7 +267,17 @@ ALARM_POINTS = [
                      "reason": "Generator not running (state based suppression)"},
     },
     {
+        "tag": "GEN-1.RUN", "meter_id": "GEN-1", "parameter": "running", "kind": "DISCRETE",
+        "signal": "generator_start",
+        "setpoint": 1, "deadband": 0, "priority": 4, "on_delay": 0, "off_delay": 1,
+        "unit": "",
+        "message": "Generator running",
+        "consequence": "Facility load is on, or about to be on, generator power and fuel.",
+        "response": "Confirm what called for the generator. Check fuel level and load.",
+    },
+    {
         "tag": "ATS-1.EMERG", "meter_id": "ATS-1", "parameter": "on_emergency", "kind": "DISCRETE",
+        "signal": "ats_transfer",
         "setpoint": 1, "deadband": 0, "priority": 3, "on_delay": 0, "off_delay": 1,
         "unit": "",
         "message": "ATS on emergency source",
@@ -268,6 +296,7 @@ ALARM_POINTS = [
     *_ups_alarms("UPS-B"),
     {
         "tag": "MECH-1.PF.LO", "meter_id": "MECH-1", "parameter": "power_factor", "kind": "LO",
+        "signal": "power_factor_low",
         "setpoint": 0.85, "deadband": 0.01, "priority": 4, "on_delay": 2, "off_delay": 2,
         "unit": "",
         "message": "Mechanical panel power factor low",
