@@ -27,3 +27,6 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+
+# Tests
+.pytest_cache/
