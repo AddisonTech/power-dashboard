@@ -1,5 +1,7 @@
 // Helpers for the Triage tab. Pure functions, so they test without a browser.
 
+import { clockIn } from './zone'
+
 export const RULES = {
   'E-P1': 'Cause confirmed by trend',
   'E-P2': 'Not explained by any cause',
@@ -52,7 +54,26 @@ export function limitText(evidence) {
 }
 
 // One line on what the trend shows, for under the chart
-export function evidenceText(evidence) {
+// A generator frequency dip, measured by the agent from its load step.
+// Times are shown in the viewer's zone with the server's labels.
+export function dipText(dip, zone = { name: 'UTC', labels: {} }) {
+  if (!dip) return null
+  if (!dip.measured) return `No dip measurement: ${dip.reason}.`
+  const at = iso => clockIn(iso, zone.name, zone.labels)
+  const step = dip.basis === 'ats_transfer' ? 'at the transfer' : 'with the generator first at rated frequency'
+  if (dip.below_nominal_hz <= dip.tolerance_hz) {
+    return `Load step ${at(dip.step_at)} (${step}): stayed within ${dip.tolerance_hz} Hz of ${dip.nominal_hz} Hz, lowest ${dip.worst_hz.toFixed(2)} Hz.`
+  }
+  const head = `Load step ${at(dip.step_at)} (${step}): worst ${dip.worst_hz.toFixed(2)} Hz, ` +
+    `${dip.below_nominal_hz.toFixed(2)} Hz below the ${dip.nominal_hz} Hz nominal`
+  if (dip.recovered_at) {
+    return `${head}, back within ${dip.tolerance_hz} Hz at ${at(dip.recovered_at)}, ${seconds(dip.recovery_s)} after the step.`
+  }
+  return `${head}, not back within ${dip.tolerance_hz} Hz by ${at(dip.window_end)}.`
+}
+
+export function evidenceText(evidence, zone) {
+  if (evidence?.dip) return dipText(evidence.dip, zone)
   if (!evidence || !evidence.samples_past_limit) return 'The trend never shows this point past its limit.'
   const past = evidence.samples_past_limit
   const span = evidence.seconds_past_limit > 0 ? ` for ${seconds(evidence.seconds_past_limit)}` : ''

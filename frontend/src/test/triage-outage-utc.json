@@ -13,7 +13,7 @@
   }
  },
  "triage": {
-  "agent_version": "0.2.1",
+  "agent_version": "0.2.2",
   "time_zone": {
    "name": "UTC",
    "label": "UTC"
@@ -554,7 +554,8 @@
        "2026-09-21T14:23:28+00:00",
        0.0
       ]
-     ]
+     ],
+     "dip": null
     },
     "rank": 1,
     "reason": "Utility power failure at UTIL-1 is confirmed in the trend from 14:18:20 UTC to 14:20:08 UTC (about 108 seconds), and it accounts for 5 other alarms: UPS on battery at UPS-A, UPS on battery at UPS-B, generator start at GEN-1, ATS transfer to the emergency source at ATS-1, generator frequency dip at GEN-1.",
@@ -833,7 +834,8 @@
          "2026-09-21T14:23:22+00:00",
          0.0
         ]
-       ]
+       ],
+       "dip": null
       }
      },
      {
@@ -1107,7 +1109,8 @@
          "2026-09-21T14:23:22+00:00",
          0.0
         ]
-       ]
+       ],
+       "dip": null
       }
      },
      {
@@ -1381,7 +1384,8 @@
          "2026-09-21T14:23:22+00:00",
          0.0
         ]
-       ]
+       ],
+       "dip": null
       }
      },
      {
@@ -1655,7 +1659,8 @@
          "2026-09-21T14:23:22+00:00",
          0.0
         ]
-       ]
+       ],
+       "dip": null
       }
      },
      {
@@ -1674,7 +1679,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:32 UTC, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 14:18:32 UTC, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it; load step at 14:18:32 UTC (the transfer to the emergency source): worst 58.88 Hz at 14:18:32 UTC, 1.12 Hz below the 60 Hz nominal, back within 0.5 Hz at 14:18:34 UTC, 2 s after the step",
       "preliminary_score": 2.3e-05,
       "evidence": {
        "kind": "low",
@@ -1682,12 +1687,12 @@
        "deadband": 0.1,
        "direction": "LOW",
        "units": "Hz",
-       "samples": 13,
-       "samples_past_limit": 4,
-       "first_past_limit": "2026-09-21T14:18:22+00:00",
+       "samples": 8,
+       "samples_past_limit": 1,
+       "first_past_limit": "2026-09-21T14:18:32+00:00",
        "last_past_limit": "2026-09-21T14:18:32+00:00",
-       "seconds_past_limit": 10.0,
-       "worst_value": 0.0,
+       "seconds_past_limit": 0.0,
+       "worst_value": 58.88,
        "trend": [
         [
          "2026-09-21T14:13:20+00:00",
@@ -1929,7 +1934,22 @@
          "2026-09-21T14:23:22+00:00",
          0.0
         ]
-       ]
+       ],
+       "dip": {
+        "measured": true,
+        "reason": null,
+        "basis": "ats_transfer",
+        "step_at": "2026-09-21T14:18:32+00:00",
+        "rated_at": "2026-09-21T14:18:28+00:00",
+        "worst_hz": 58.88,
+        "worst_at": "2026-09-21T14:18:32+00:00",
+        "nominal_hz": 60.0,
+        "below_nominal_hz": 1.12,
+        "tolerance_hz": 0.5,
+        "recovered_at": "2026-09-21T14:18:34+00:00",
+        "recovery_s": 2.0,
+        "window_end": "2026-09-21T14:18:46+00:00"
+       }
       }
      }
     ]
@@ -1937,7 +1957,7 @@
   ],
   "nuisance": [],
   "unresolved": [],
-  "elapsed_s": 0.039,
+  "elapsed_s": 0.04,
   "writer": {
    "kind": "template",
    "name": "template, no model",
