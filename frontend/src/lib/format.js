@@ -1,3 +1,5 @@
+import { clockIn, dateTimeIn, viewerZone } from './zone'
+
 export function num(v, digits = 1) {
   return v == null || Number.isNaN(v) ? '--' : Number(v).toFixed(digits)
 }
@@ -7,15 +9,13 @@ export function kw(v) {
   return v >= 1000 ? `${(v / 1000).toFixed(2)} MW` : `${v.toFixed(0)} kW`
 }
 
-export function timeOf(iso) {
-  if (!iso) return '--'
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+// Clock times are shown in the viewer's zone, labeled ("15:28:45 EDT")
+export function timeOf(iso, zone = viewerZone(), labels) {
+  return clockIn(iso, zone, labels)
 }
 
-export function dateTimeOf(iso) {
-  if (!iso) return '--'
-  const d = new Date(iso)
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeOf(iso)}`
+export function dateTimeOf(iso, zone = viewerZone(), labels) {
+  return dateTimeIn(iso, zone, labels)
 }
 
 export function ago(iso, now = Date.now()) {

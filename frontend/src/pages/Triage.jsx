@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Download, ListOrdered, Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { api, exportJournalUrl } from '../services/api'
 import { PriorityBadge } from '../components/Badges'
-import { dateTimeOf, timeOf } from '../lib/format'
+import { clockIn, dateTimeIn, viewerZone, zoneLabel } from '../lib/zone'
 import {
   capitalize, chartGeometry, evidenceText, floodParts, itemWriter, reduction, ruleLabel, writerLabel,
 } from '../lib/triage'
@@ -24,7 +24,7 @@ export function EvidenceChart({ evidence }) {
   )
 }
 
-function Consequences({ items }) {
+function Consequences({ items, zone }) {
   const [open, setOpen] = useState(false)
   if (!items.length) {
     return <p className="muted small tri-alone">Nothing else in this window depends on it.</p>
@@ -42,7 +42,7 @@ function Consequences({ items }) {
               <div className="tri-cq-head">
                 <PriorityBadge priority={c.priority} compact />
                 <span className="tri-cq-label">{capitalize(c.label)}</span>
-                <span className="muted small mono">{timeOf(c.start)}</span>
+                <span className="muted small mono">{clockIn(c.start, zone.name, zone.labels)}</span>
               </div>
               <div className="muted small mono tri-point">{c.point}</div>
               <div className="small tri-cq-why">{evidenceText(c.evidence)}</div>
@@ -54,7 +54,7 @@ function Consequences({ items }) {
   )
 }
 
-export function TriageItem({ item }) {
+export function TriageItem({ item, zone }) {
   return (
     <article className={`tri-item p${item.priority}`}>
       <header className="tri-item-head">
@@ -85,20 +85,36 @@ export function TriageItem({ item }) {
         <p className="small muted">{evidenceText(item.evidence)}</p>
       </figure>
 
-      <Consequences items={item.consequences} />
+      <Consequences items={item.consequences} zone={zone} />
 
       <footer className="tri-foot">
         <span className={`tri-writer ${/haiku/i.test(item.written_by) ? 'haiku' : 'template'}`}>
           {itemWriter(item.written_by)}
         </span>
-        <span className="muted small">{dateTimeOf(item.start)}</span>
+        <span className="muted small">{dateTimeIn(item.start, zone.name, zone.labels)}</span>
       </footer>
     </article>
   )
 }
 
+// The zone the agent wrote its text in, with the labels for its offsets
+function zoneOf(data) {
+  return { name: data.triage.time_zone?.name || data.zone?.name || 'UTC', labels: data.zone?.labels || {} }
+}
+
+export function ZoneNote({ zone, at }) {
+  if (!zone) return null
+  const label = at ? zoneLabel(at, zone.name, zone.labels) : 'UTC'
+  return (
+    <span className="muted small tri-zone">
+      Times in {zone.name}{label === zone.name ? '' : ` (${label})`}
+    </span>
+  )
+}
+
 export function TriageResult({ data }) {
   const result = data.triage
+  const zone = zoneOf(data)
   const counts = result.counts
   const r = reduction(counts)
   return (
@@ -132,7 +148,7 @@ export function TriageResult({ data }) {
         <div className="card empty-state"><p>No item in this window needed escalating.</p></div>
       )}
       <div className="tri-list">
-        {result.items.map(item => <TriageItem key={item.point} item={item} />)}
+        {result.items.map(item => <TriageItem key={item.point} item={item} zone={zone} />)}
       </div>
 
       {(result.nuisance.length > 0 || result.unresolved.length > 0) && (
@@ -161,29 +177,34 @@ export function TriageResult({ data }) {
 export default function Triage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [timeZone] = useState(viewerZone)
   const [event, setEvent] = useState(undefined)
+  const [zone, setZone] = useState({ name: timeZone, labels: {} })
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const autoRan = useRef(false)
 
   const loadEvent = useCallback(() => {
-    api.getTriageEvent().then(r => setEvent(r.event)).catch(() => setEvent(null))
-  }, [])
+    api.getTriageEvent(timeZone)
+      .then(r => { setEvent(r.event); if (r.zone) setZone(r.zone) })
+      .catch(() => setEvent(null))
+  }, [timeZone])
 
   const run = useCallback(async () => {
     setBusy(true)
     setError(null)
     try {
-      const res = await api.runTriage()
+      const res = await api.runTriage({ time_zone: timeZone })
       setData(res)
       setEvent(e => ({ ...(e || {}), ...res.event }))
+      if (res.zone) setZone(res.zone)
     } catch (err) {
       setError(err.message)
     } finally {
       setBusy(false)
     }
-  }, [])
+  }, [timeZone])
 
   useEffect(() => { loadEvent() }, [loadEvent])
 
@@ -212,8 +233,9 @@ export default function Triage() {
           {event === null && <span className="muted">No alarm event yet. Trigger one from About this demo.</span>}
           {event && (
             <span>
-              Latest event: first alarm <span className="mono">{dateTimeOf(event.first_alarm)}</span>
+              Latest event: first alarm <span className="mono">{dateTimeIn(event.first_alarm, zone.name, zone.labels)}</span>
               {event.alarms ? <span className="muted">, {event.alarms} alarm{event.alarms === 1 ? '' : 's'}</span> : null}
+              <br /><ZoneNote zone={zone} at={event.first_alarm} />
             </span>
           )}
         </div>

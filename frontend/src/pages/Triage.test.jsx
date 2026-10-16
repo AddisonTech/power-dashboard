@@ -2,8 +2,10 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import Triage, { EvidenceChart, TriageItem, TriageResult } from './Triage'
+import Triage, { EvidenceChart, TriageItem, TriageResult, ZoneNote } from './Triage'
+import { clockIn, dateTimeIn } from '../lib/zone'
 import outage from '../test/triage-outage.json'
+import outageUtc from '../test/triage-outage-utc.json'
 
 const render = (el) => renderToStaticMarkup(el)
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
@@ -47,7 +49,7 @@ describe('Triage tab', () => {
 
   it('shows the next step and the trend evidence', () => {
     const item = outage.triage.items[0]
-    const html = render(<TriageItem item={item} />)
+    const html = render(<TriageItem item={item} zone={outage.zone} />)
     expect(text(html)).toContain('Next step')
     expect(text(html)).toContain(item.next_step.slice(0, 40))
     expect(html).toContain('class="tri-chart"')
@@ -67,5 +69,45 @@ describe('Triage tab', () => {
     const html = render(<MemoryRouter initialEntries={['/triage']}><Triage /></MemoryRouter>)
     expect(text(html)).toContain('Triage this event')
     expect(text(html)).toContain('cuts the alarm flood')
+  })
+})
+
+describe('Triage tab times', () => {
+  const cases = [
+    ['America/New_York', 'EDT', outage],
+    ['UTC', 'UTC', outageUtc],
+  ]
+
+  it.each(cases)('states the card times in %s, labeled', (zoneName, label, data) => {
+    const item = data.triage.items[0]
+    const labels = data.zone.labels
+    // what the browser formats for the header and the card footer
+    const first = clockIn(item.evidence.first_past_limit, zoneName, labels)
+    const last = clockIn(item.evidence.last_past_limit, zoneName, labels)
+    expect(first.endsWith(` ${label}`)).toBe(true)
+    // what the agent wrote in the card's sentence
+    expect(item.reason).toContain(`from ${first} to ${last}`)
+    const html = render(<TriageResult data={data} />)
+    const t = text(html)
+    expect(t).toContain(dateTimeIn(item.start, zoneName, labels))
+    // no clock anywhere on the card without its label
+    expect(t.match(/\b\d\d:\d\d:\d\d(?! [A-Z])/g)).toBeNull()
+    const labelsSeen = new Set([...t.matchAll(/\b\d\d:\d\d:\d\d ([A-Z]+)/g)].map(m => m[1]))
+    expect([...labelsSeen]).toEqual([label])
+  })
+
+  it('names the zone it is showing', () => {
+    const zone = outage.zone
+    const t = text(render(<ZoneNote zone={zone} at={outage.event.first_alarm} />))
+    expect(t).toContain('Times in America/New_York (EDT)')
+    const u = text(render(<ZoneNote zone={outageUtc.zone} at={outageUtc.event.first_alarm} />))
+    expect(u.trim()).toBe('Times in UTC')
+  })
+
+  it('shows New York and UTC an exact conversion apart', () => {
+    const ny = outage.triage.items[0].reason.match(/(\d\d):(\d\d:\d\d) EDT/)
+    const utc = outageUtc.triage.items[0].reason.match(/(\d\d):(\d\d:\d\d) UTC/)
+    expect((Number(utc[1]) - Number(ny[1]) + 24) % 24).toBe(4)
+    expect(ny[2]).toBe(utc[2])
   })
 })
