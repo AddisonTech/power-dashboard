@@ -1,168 +1,180 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
-} from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useFeed } from '../services/LiveFeed'
+import { alarmsByMeter } from '../services/feed'
 import { api } from '../services/api'
+import { PriorityBadge, StateBadge } from '../components/Badges'
+import { ANNUNCIATED } from '../lib/alarms'
+import { num } from '../lib/format'
 
-function GaugeArc({ value, min, max, warn, crit, label, unit, size = 120 }) {
-  const pct = Math.min(1, Math.max(0, (value - min) / (max - min)))
-  const angle = -210 + pct * 240
-  const r = size / 2 - 12
-  const cx = size / 2, cy = size / 2
+const PERIODS = ['1h', '24h', '7d']
+const TREND_FIELDS = {
+  power_kw: { label: 'Power', unit: 'kW' },
+  load_pct: { label: 'Load', unit: '%' },
+  voltage: { label: 'Voltage', unit: 'V' },
+  current: { label: 'Current', unit: 'A' },
+  power_factor: { label: 'Power factor', unit: '' },
+  frequency: { label: 'Frequency', unit: 'Hz' },
+}
 
-  const toXY = (deg, radius) => ({
-    x: cx + radius * Math.cos((deg * Math.PI) / 180),
-    y: cy + radius * Math.sin((deg * Math.PI) / 180),
-  })
-
-  const arcPath = (startDeg, endDeg, radius) => {
-    const s = toXY(startDeg, radius)
-    const e = toXY(endDeg, radius)
-    const large = endDeg - startDeg > 180 ? 1 : 0
-    return `M${s.x},${s.y} A${radius},${radius} 0 ${large},1 ${e.x},${e.y}`
+function Gauge({ value, min, max, warn, crit, low = false, label, unit, digits = 1 }) {
+  const v = value ?? min
+  const pct = Math.min(1, Math.max(0, (v - min) / (max - min)))
+  const size = 120
+  const r = 46
+  const cx = size / 2
+  const cy = size / 2 + 6
+  const start = -210
+  const sweep = 240
+  const pt = (deg, rad) => [cx + rad * Math.cos((deg * Math.PI) / 180), cy + rad * Math.sin((deg * Math.PI) / 180)]
+  const arc = (a0, a1) => {
+    const [x0, y0] = pt(a0, r)
+    const [x1, y1] = pt(a1, r)
+    return `M${x0},${y0} A${r},${r} 0 ${a1 - a0 > 180 ? 1 : 0},1 ${x1},${y1}`
   }
-
-  const color = value >= crit ? '#ef4444' : value >= warn ? '#f59e0b' : '#22c55e'
-
+  const abnormal = value != null && (low ? value <= crit : value >= crit)
+  const caution = value != null && !abnormal && (low ? value <= warn : value >= warn)
+  const cls = abnormal ? 'g-crit' : caution ? 'g-warn' : 'g-ok'
   return (
-    <div className="gauge-container">
-      <svg width={size} height={size}>
-        <path d={arcPath(-210, 30, r)} fill="none" stroke="#2a2a2a" strokeWidth={8} strokeLinecap="round" />
-        <path d={arcPath(-210, -210 + pct * 240, r)} fill="none" stroke={color} strokeWidth={8} strokeLinecap="round" />
-        <line
-          x1={cx} y1={cy}
-          x2={cx + (r - 10) * Math.cos((angle * Math.PI) / 180)}
-          y2={cy + (r - 10) * Math.sin((angle * Math.PI) / 180)}
-          stroke={color} strokeWidth={2} strokeLinecap="round"
-        />
-        <circle cx={cx} cy={cy} r={4} fill={color} />
-        <text x={cx} y={cy + 18} textAnchor="middle" fill="#e8e8e8" fontSize={13} fontWeight="700" fontFamily="monospace">
-          {value?.toFixed(unit === 'Hz' ? 3 : 1)}
-        </text>
-        <text x={cx} y={cy + 30} textAnchor="middle" fill="#606060" fontSize={9}>{unit}</text>
+    <div className="gauge">
+      <svg viewBox={`0 0 ${size} ${size - 10}`} className={`gauge-svg ${cls}`}>
+        <path d={arc(start, start + sweep)} className="gauge-track" />
+        {pct > 0.002 && <path d={arc(start, start + sweep * pct)} className="gauge-fill" />}
+        <text x={cx} y={cy + 4} textAnchor="middle" className="gauge-value">{num(value, digits)}</text>
+        <text x={cx} y={cy + 18} textAnchor="middle" className="gauge-unit">{unit}</text>
       </svg>
       <div className="gauge-label">{label}</div>
     </div>
   )
 }
 
-export default function Meters({ readings }) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [meters, setMeters] = useState([])
-  const [history, setHistory] = useState([])
+export default function Meters() {
+  const { meters, meterById, readings, alarms } = useFeed()
+  const [params, setParams] = useSearchParams()
+  const selectedId = meterById[params.get('id')] ? params.get('id') : meters[0]?.id
+  const meter = meterById[selectedId]
+  const r = readings[selectedId] || {}
   const [period, setPeriod] = useState('1h')
-  const selectedId = parseInt(searchParams.get('id') || '1', 10)
+  const [field, setField] = useState('power_kw')
+  const [history, setHistory] = useState([])
+  const byMeter = useMemo(() => alarmsByMeter(alarms), [alarms])
+  const meterAlarms = alarms.filter(a => a.meter_id === selectedId && ANNUNCIATED.includes(a.state))
 
   useEffect(() => {
-    api.getMeters().then(setMeters).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    api.getMeterHistory(selectedId, period).then(rows => {
-      setHistory(rows.map(r => ({
-        ...r,
-        time: new Date(r.timestamp).toLocaleTimeString(),
-      })))
-    }).catch(() => {})
+    if (!selectedId) return undefined
+    let cancelled = false
+    api.getMeterHistory(selectedId, period)
+      .then(rows => { if (!cancelled) setHistory(rows) })
+      .catch(() => {})
+    return () => { cancelled = true }
   }, [selectedId, period])
 
-  const meter = meters.find(m => m.id === selectedId)
-  const reading = readings[selectedId] || {}
-  const nomV = meter?.nominal_voltage || 480
-  const nomI = meter?.nominal_current || 100
+  if (!meter) return null
+  const nomV = meter.nominal_voltage
+  const tf = TREND_FIELDS[field]
+  const tickFmt = t => new Date(t * 1000).toLocaleTimeString([], period === '7d'
+    ? { month: 'short', day: 'numeric' } : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
   return (
-    <div style={{ display: 'flex', gap: 20, height: '100%' }}>
-      {/* Meter list */}
-      <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-          Meters
+    <div className="page meters-layout">
+      <aside className="meter-list">
+        <label className="meter-select-label" htmlFor="meter-select">Meter</label>
+        <select id="meter-select" className="meter-select" value={selectedId} onChange={e => setParams({ id: e.target.value })}>
+          {meters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+        <div className="meter-buttons">
+          {meters.map(m => {
+            const a = byMeter[m.id]
+            return (
+              <button key={m.id} className={`meter-btn${m.id === selectedId ? ' active' : ''}`} onClick={() => setParams({ id: m.id })}>
+                <span className={`status-dot ${a ? `p${a.priority}` : (readings[m.id]?.voltage ?? 0) < 1 ? 'off' : 'ok'}`} />
+                <span className="meter-btn-name">{m.name}</span>
+                <span className="mono muted small">{m.id}</span>
+              </button>
+            )
+          })}
         </div>
-        {meters.map(m => {
-          const r = readings[m.id]
-          const v = r?.voltage || 0
-          const status = !r ? 'off' : v > nomV * 1.05 || v < nomV * 0.95 ? 'warn' : 'ok'
-          return (
-            <button
-              key={m.id}
-              onClick={() => setSearchParams({ id: m.id })}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
-                borderRadius: 8, border: '1px solid',
-                borderColor: m.id === selectedId ? 'var(--accent-border)' : 'var(--border)',
-                background: m.id === selectedId ? 'var(--accent-dim)' : 'var(--bg-card)',
-                color: m.id === selectedId ? 'var(--accent)' : 'var(--text-primary)',
-                textAlign: 'left', fontSize: 12, cursor: 'pointer', width: '100%',
-              }}
-            >
-              <span className={`status-dot ${status}`} />
-              {m.name}
-            </button>
-          )
-        })}
-      </div>
+      </aside>
 
-      {/* Detail panel */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
-        {meter && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700 }}>{meter.name}</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{meter.description}</p>
-              </div>
+      <div className="meter-detail">
+        <div className="page-header">
+          <div>
+            <h2>{meter.name} <span className="mono muted">{meter.id}</span></h2>
+            <p>{meter.description}</p>
+          </div>
+          <span className="status-chip">{r.status || '--'}</span>
+        </div>
+
+        <div className="card gauges">
+          <Gauge label="Voltage" unit="V" value={r.voltage} min={nomV * 0.8} max={nomV * 1.2} warn={nomV * 1.05} crit={nomV * 1.1} digits={1} />
+          <Gauge label="Load" unit="% of rating" value={r.load_pct} min={0} max={100} warn={80} crit={90} digits={1} />
+          <Gauge label="Power factor" unit="" value={r.power_factor} min={0.6} max={1} warn={0.88} crit={0.85} low digits={3} />
+          <Gauge label="Frequency" unit="Hz" value={r.frequency} min={58} max={62} warn={60.3} crit={60.5} digits={2} />
+        </div>
+
+        <div className="kpi-grid">
+          {[
+            ['Power', num(r.power_kw), 'kW'],
+            ['Current', num(r.current), 'A'],
+            ['Demand (15 min)', num(r.demand_kw), 'kW'],
+            ['Energy', r.energy_kwh != null ? Math.round(r.energy_kwh).toLocaleString() : '--', 'kWh'],
+            ...(meter.type === 'ups' ? [
+              ['Battery', num(r.battery_soc), '%'],
+              ['Runtime', num(r.battery_runtime_min, 0), 'min'],
+            ] : []),
+            ...(meter.type === 'ats' ? [['Position', r.position === 'GENERATOR' ? 'Emergency' : 'Normal', '']] : []),
+            ...(meter.type === 'generator' ? [['Engine', r.gen_state ? r.gen_state.toLowerCase() : '--', '']] : []),
+          ].map(([label, value, unit]) => (
+            <div key={label} className="stat-card">
+              <div className="stat-card-label">{label}</div>
+              <div className="stat-card-value small-value">{value}{unit && <span className="stat-card-unit">{unit}</span>}</div>
             </div>
+          ))}
+        </div>
 
-            {/* Gauges */}
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-around', padding: 24 }}>
-              <GaugeArc value={reading.voltage || 0} min={400} max={560} warn={nomV * 1.05} crit={nomV * 1.10} label="Voltage" unit="V" size={130} />
-              <GaugeArc value={reading.current || 0} min={0} max={nomI * 1.2} warn={nomI * 0.85} crit={nomI} label="Current" unit="A" size={130} />
-              <GaugeArc value={reading.power_factor || 0} min={0} max={1} warn={0.85} crit={0.75} label="Pwr Factor" unit="" size={130} />
-              <GaugeArc value={reading.frequency || 60} min={58} max={62} warn={60.5} crit={61} label="Frequency" unit="Hz" size={130} />
-            </div>
-
-            {/* Key metrics */}
-            <div className="grid-4">
-              {[
-                { label: 'Power',   value: reading.power_kw?.toFixed(2),    unit: 'kW'  },
-                { label: 'Demand',  value: reading.demand_kw?.toFixed(2),   unit: 'kW'  },
-                { label: 'Energy',  value: reading.energy_kwh?.toFixed(1),  unit: 'kWh' },
-                { label: 'Load',    value: ((reading.current / nomI) * 100)?.toFixed(1), unit: '%' },
-              ].map(({ label, value, unit }) => (
-                <div key={label} className="stat-card">
-                  <div className="stat-card-label">{label}</div>
-                  <div className="stat-card-value">{value ?? '--'}</div>
-                  <div className="stat-card-sub">{unit}</div>
-                </div>
+        {meterAlarms.length > 0 && (
+          <div className="card">
+            <div className="card-head"><h3>Alarms on this meter</h3></div>
+            <ul className="mini-alarms">
+              {meterAlarms.map(a => (
+                <li key={a.tag} className={`p${a.priority}`}>
+                  <PriorityBadge priority={a.priority} compact />
+                  <div className="mini-alarm-text">{a.message}</div>
+                  <StateBadge state={a.state} priority={a.priority} />
+                </li>
               ))}
-            </div>
-
-            {/* Trend chart */}
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>POWER TREND</span>
-                <div className="period-selector">
-                  {['1h', '24h', '7d'].map(p => (
-                    <button key={p} className={`period-btn${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={history} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" />
-                  <XAxis dataKey="time" tick={{ fill: '#606060', fontSize: 10 }} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: '#606060', fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8 }} labelStyle={{ color: '#a0a0a0' }} />
-                  <Line type="monotone" dataKey="power_kw" stroke="var(--accent)" dot={false} strokeWidth={1.5} name="Power kW" />
-                  <Line type="monotone" dataKey="voltage" stroke="#22c55e" dot={false} strokeWidth={1} name="Voltage V" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </>
+            </ul>
+          </div>
         )}
+
+        <div className="card">
+          <div className="card-head wrap">
+            <h3>Trend</h3>
+            <div className="trend-controls">
+              <select value={field} onChange={e => setField(e.target.value)} aria-label="Trend parameter">
+                {Object.entries(TREND_FIELDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <div className="seg">
+                {PERIODS.map(p => (
+                  <button key={p} className={`seg-btn${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={history} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--grid)" />
+              <XAxis dataKey="epoch" type="number" domain={['dataMin', 'dataMax']} tickFormatter={tickFmt}
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickLine={false} minTickGap={40} />
+              <YAxis domain={['auto', 'auto']} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+              <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}
+                labelFormatter={t => new Date(t * 1000).toLocaleString()} formatter={v => [`${v} ${tf.unit}`, tf.label]} />
+              {field === 'load_pct' && <ReferenceLine y={80} stroke="var(--p3)" strokeDasharray="4 4" />}
+              <Line type="monotone" dataKey={field} stroke="var(--accent)" dot={false} strokeWidth={1.6} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   )
