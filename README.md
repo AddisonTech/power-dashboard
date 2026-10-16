@@ -58,10 +58,10 @@ What else is implemented:
 
 ISA 18.2 alarm handling keeps the list honest, but a utility outage still annunciates six alarms in twelve seconds: utility failure, both UPS systems on battery, the generator running, the transfer switch on the emergency source, and the generator frequency dip when the load lands. Only one of those is the thing that happened.
 
-The **Triage** tab hands the alarm journal and trend history for the window around the latest event to the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent), version 0.2.1, pinned in `backend/requirements.txt` to the commit that release was merged as, and shows what comes back:
+The **Triage** tab hands the alarm journal and trend history for the window around the latest event to the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent), version 0.2.2, pinned in `backend/requirements.txt` to the commit that release was merged as, and shows what comes back:
 
 - **Root cause first.** The agent's electrical rule set ranks the cause and folds its consequences under it. A utility failure explains UPS on battery, the generator start, the ATS transfer, and the frequency dip; a voltage sag explains the UPS ride through; a PDU overload explains its own lower stage and the load alarm on the UPS that feeds it; low power factor stands on its own.
-- **Trend evidence** for every item, the stretch it spent past its limit, and the rule that ranked it.
+- **Trend evidence** for every item, the stretch it spent past its limit, and the rule that ranked it. The generator frequency dip is measured from the load step at the transfer, once the generator is at rated frequency, never across its run up from standstill: worst frequency, how far below 60 Hz, and how long until it was back within 0.5 Hz.
 - **A next step**, always a diagnostic one: a verb from a closed list, the item's own equipment as the target, never a control action.
 - **Who wrote the text.** A fixed template writes it from each item's own evidence. Claude Haiku writes it only when the server has `TRIAGE_ANTHROPIC_KEY` set, and the same checks apply to every reply either way. The hosted demo has no key, so the demo shows the template.
 
@@ -150,7 +150,7 @@ Demo scenarios:
 | API and WebSocket | Python 3.13, FastAPI 0.111, Uvicorn |
 | Storage | SQLite (WAL mode) |
 | Field protocol | Modbus TCP via pymodbus (optional) |
-| Alarm triage | BMS Alarm Triage Agent 0.2.1, pinned to its release commit |
+| Alarm triage | BMS Alarm Triage Agent 0.2.2, pinned to its release commit |
 | Front end | React 18, Vite 5, React Router 6 |
 | Charts and icons | Recharts (trend pages), inline SVG, Lucide |
 | Tests | pytest, FastAPI TestClient, Vitest |
