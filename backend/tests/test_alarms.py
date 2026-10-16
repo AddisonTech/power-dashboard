@@ -269,5 +269,6 @@ def test_outage_through_real_alarm_database():
     alarmed = {e["tag"] for e in events if e["event"] == "ALARM"}
     assert {"UTIL-1.FAIL", "UPS-A.ONBATT", "UPS-B.ONBATT", "ATS-1.EMERG"} <= alarmed
     assert "UTIL-1.V.LO" not in alarmed  # cascade suppressed by the failure alarm
+    assert "MECH-1.PF.LO" not in alarmed  # no nuisance alarm from a de-energized panel
     states = {a["tag"]: a["state"] for a in mgr.alarm_list()}
     assert states.get("UPS-A.ONBATT") == "RTN_UNACK"  # ran on battery, nobody acked

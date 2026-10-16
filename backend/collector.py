@@ -176,6 +176,8 @@ class Collector:
         ups_runtime = [r[u].get("battery_runtime_min") for u in ("UPS-A", "UPS-B")
                        if u in r and r[u].get("battery_runtime_min") is not None]
 
+        on_battery = any(r.get(u, {}).get("on_battery") for u in ("UPS-A", "UPS-B"))
+
         in_alarm = [p for p in self.alarms.points.values()
                     if p.state in (AlarmState.UNACK, AlarmState.ACKED)]
         priorities = {p.d["priority"] for p in in_alarm}
@@ -195,7 +197,7 @@ class Collector:
             "simulated": self.simulated,
             "facility_kw": round(facility_kw, 1),
             "it_kw": round(it_kw, 1),
-            "pue": round(facility_kw / it_kw, 2) if facility_kw > 0 and it_kw > 0 else None,
+            "pue": round(facility_kw / it_kw, 2) if facility_kw > 0 and it_kw > 0 and not on_battery else None,
             "power_source": r.get("ATS-1", {}).get("position"),
             "utility_status": r.get("UTIL-1", {}).get("status"),
             "generator_status": r.get("GEN-1", {}).get("status"),

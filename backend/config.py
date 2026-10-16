@@ -168,12 +168,13 @@ ALARM_PRIORITIES = {
 # ---------------------------------------------------------------------------
 
 def _pdu_alarms(pdu: str):
+    name = METERS_BY_ID[pdu]["name"]
     return [
         {
             "tag": f"{pdu}.LOAD.HI", "meter_id": pdu, "parameter": "load_pct", "kind": "HI",
             "setpoint": 80.0, "deadband": 3.0, "priority": 3, "on_delay": 2, "off_delay": 2,
             "unit": "%",
-            "message": f"{pdu} load high",
+            "message": f"{name} load high",
             "consequence": "Reduced margin before the PDU main breaker trips.",
             "response": "Check for new rack load or a failed partner PDU. Plan load rebalancing.",
         },
@@ -181,7 +182,7 @@ def _pdu_alarms(pdu: str):
             "tag": f"{pdu}.LOAD.HIHI", "meter_id": pdu, "parameter": "load_pct", "kind": "HIHI",
             "setpoint": 90.0, "deadband": 3.0, "priority": 2, "on_delay": 2, "off_delay": 2,
             "unit": "%",
-            "message": f"{pdu} load very high",
+            "message": f"{name} load very high",
             "consequence": "PDU breaker trip drops every server on this side.",
             "response": "Shed or move load now. Confirm the partner PDU can carry the racks.",
         },
@@ -189,12 +190,13 @@ def _pdu_alarms(pdu: str):
 
 
 def _ups_alarms(ups: str):
+    name = METERS_BY_ID[ups]["name"]
     return [
         {
             "tag": f"{ups}.ONBATT", "meter_id": ups, "parameter": "on_battery", "kind": "DISCRETE",
             "setpoint": 1, "deadband": 0, "priority": 1, "on_delay": 0, "off_delay": 1,
             "unit": "",
-            "message": f"{ups} on battery",
+            "message": f"{name} on battery",
             "consequence": "Critical load is on limited battery runtime.",
             "response": "Verify generator start and ATS transfer. Watch battery runtime.",
         },
@@ -202,7 +204,7 @@ def _ups_alarms(ups: str):
             "tag": f"{ups}.LOAD.HI", "meter_id": ups, "parameter": "load_pct", "kind": "HI",
             "setpoint": 50.0, "deadband": 2.0, "priority": 2, "on_delay": 2, "off_delay": 2,
             "unit": "%",
-            "message": f"{ups} load above 2N limit",
+            "message": f"{name} load above 2N limit",
             "consequence": "If the other side fails, this UPS cannot carry the full IT load.",
             "response": "Rebalance IT load between A and B sides below 50 percent each.",
         },
@@ -210,7 +212,7 @@ def _ups_alarms(ups: str):
             "tag": f"{ups}.BATT.LO", "meter_id": ups, "parameter": "battery_soc", "kind": "LO",
             "setpoint": 60.0, "deadband": 5.0, "priority": 2, "on_delay": 1, "off_delay": 2,
             "unit": "%",
-            "message": f"{ups} battery charge low",
+            "message": f"{name} battery charge low",
             "consequence": "Reduced ride through time on the next utility event.",
             "response": "Confirm the rectifier is charging. Avoid planned transfers until recharged.",
         },
@@ -271,6 +273,8 @@ ALARM_POINTS = [
         "message": "Mechanical panel power factor low",
         "consequence": "Higher current and possible utility power factor penalty.",
         "response": "Check the capacitor bank and VFD bypass status.",
+        "suppress": {"meter_id": "MECH-1", "parameter": "energized", "equals": False,
+                     "reason": "Panel de-energized (state based suppression)"},
     },
     {
         "tag": "MECH-1.LOAD.HI", "meter_id": "MECH-1", "parameter": "load_pct", "kind": "HI",

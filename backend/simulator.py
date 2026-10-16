@@ -390,7 +390,8 @@ class FacilitySimulator:
         mech_kva = mech_kw / mech_pf
         mech_v = v_src * (1 - 0.006 * mech_kva / cfg["rated_kva"]) if src_live else 0.0
         readings["MECH-1"] = self._reading("MECH-1", now, dt, mech_v, mech_kva, mech_kw,
-                                           mech_pf if mech_kw > 0 else 0.0, f_src, status=mech_status)
+                                           mech_pf if mech_kw > 0 else 0.0, f_src, status=mech_status,
+                                           energized=src_live)
 
         # --- Main switchboard and ATS ----------------------------------------
         total_kw = ups_in_kw + mech_kw + house_kw
