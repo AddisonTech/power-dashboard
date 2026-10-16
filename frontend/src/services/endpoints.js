@@ -1,6 +1,16 @@
-// Backend location. Leave VITE_API_URL empty to use the same origin
-// (the Vite dev server proxies /api and /ws to the local backend).
-export const API_URL = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+// Backend location.
+//   VITE_API_URL set at build time   use it
+//   production build without it      use the live demo API
+//   dev server without it            same origin (Vite proxies /api and /ws)
+export const LIVE_API_URL = 'https://power-dashboard-api.onrender.com'
+
+export function resolveApiUrl(env = import.meta.env) {
+  const configured = (env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+  if (configured) return configured
+  return env.PROD ? LIVE_API_URL : ''
+}
+
+export const API_URL = resolveApiUrl()
 
 export function buildWsUrl(apiUrl = API_URL, loc = globalThis.location) {
   if (apiUrl) return apiUrl.replace(/^http/, 'ws') + '/ws/live'

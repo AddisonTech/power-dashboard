@@ -46,11 +46,9 @@ services:
         - frontend/**
       ignoredPaths:
         - frontend/src/**/*.test.js
-    routes:
-      # Client side routing: deep links like /alarms load the app
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    # No rewrite rule needed: the app uses hash routes (/#/alarms), so every
+    # page refresh requests index.html. VITE_API_URL is optional; without it
+    # the build points at https://power-dashboard-api.onrender.com.
     headers:
       - path: /assets/*
         name: Cache-Control
@@ -58,7 +56,3 @@ services:
       - path: /index.html
         name: Cache-Control
         value: no-cache
-    envVars:
-      # Public URL of power-dashboard-api, for example https://power-dashboard-api.onrender.com
-      - key: VITE_API_URL
-        sync: false

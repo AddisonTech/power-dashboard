@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { LayoutDashboard, GitBranch, Gauge, Bell, TrendingUp, Settings, Zap, Info, FlaskConical } from 'lucide-react'
 import { LiveFeedProvider, useFeed } from './services/LiveFeed'
 import WakeScreen from './components/WakeScreen'
@@ -119,12 +119,14 @@ function Shell() {
   )
 }
 
+// Hash based routing (/#/alarms) so any page can be refreshed or deep linked
+// on a static host without a server side rewrite rule.
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <LiveFeedProvider>
         <Shell />
       </LiveFeedProvider>
-    </BrowserRouter>
+    </HashRouter>
   )
 }

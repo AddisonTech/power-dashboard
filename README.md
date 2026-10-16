@@ -107,7 +107,7 @@ Demo scenarios:
 
 - **Backend:** FastAPI. A single collector owns the scan loop, the latest readings, the alarm manager, and the set of WebSocket clients. On startup in simulation mode it generates 24 hours of history (with past events and simulated operator acknowledgements) in well under a second, so trends and the journal are never empty.
 - **WebSocket feed:** on connect the server sends a `snapshot` (meters, readings, alarms, summary, demo info). After that it pushes `readings` every scan and `alarms` whenever the alarm list changes or an operator acts. Clients can send `{"type": "ping"}` and get a `pong`.
-- **Front end:** React and Vite. The live feed is a single WebSocket with automatic reconnection and a stale connection watchdog. Chart heavy pages are loaded on demand, so the first load is about 72 kB of gzipped JavaScript.
+- **Front end:** React and Vite with hash based routes (`/#/alarms`), so any page can be refreshed or shared on a static host with no rewrite rules. The live feed is a single WebSocket with automatic reconnection and a stale connection watchdog. Chart heavy pages are loaded on demand, so the first load is about 72 kB of gzipped JavaScript.
 - **Cold starts:** the static front end never sleeps. While the API wakes up it shows a progress screen and pings `/api/health` (which is also what wakes the server), then switches to the live view as soon as the first snapshot arrives. If the connection drops later, the page keeps the last data, dims it, and shows "Reconnecting".
 
 ### Stack
@@ -179,7 +179,7 @@ Backend settings are environment variables (see `backend/config.py`):
 | `CORS_ORIGINS` | `*` | Comma separated allowed origins |
 | `DB_PATH` | `power_dashboard.db` | SQLite file |
 
-Front end: `VITE_API_URL` is the API base URL used at build time. Leave it empty when the front end and API share an origin or when using the dev proxy.
+Front end: `VITE_API_URL` is the API base URL used at build time. It is optional. A production build without it points at the live demo API, `https://power-dashboard-api.onrender.com`, and the dev server without it proxies to the local backend.
 
 ### Real hardware (Modbus TCP)
 
@@ -199,7 +199,7 @@ Each device entry maps a meter ID to a host, unit ID, and the register for each 
 `render.yaml` is a Render Blueprint with two services that deploy from `main` on every merge:
 
 - **power-dashboard-api**: Python web service in `backend/`, started with `uvicorn main:app --host 0.0.0.0 --port $PORT`, health checked at `/api/health`, running the simulator.
-- **power-dashboard**: static site built from `frontend/` with `npm ci && npm run build`, published from `dist`, with a rewrite to `index.html` so deep links such as `/alarms` work. Set `VITE_API_URL` to the API service's public URL.
+- **power-dashboard**: static site built from `frontend/` with `npm ci && npm run build`, published from `dist`. No dashboard settings are required: hash routes mean refreshes never 404, and the build falls back to the live API URL when `VITE_API_URL` is not set.
 
 Build filters mean a change under `backend/` only redeploys the API, a change under `frontend/` only redeploys the site, and documentation changes redeploy nothing. GitHub Actions runs both test suites and the production build on every pull request and push to `main`.
 

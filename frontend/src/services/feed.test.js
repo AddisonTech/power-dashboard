@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SPARK_POINTS, alarmsByMeter, initialFeed, reduceFeed } from './feed'
-import { buildWsUrl } from './endpoints'
+import { LIVE_API_URL, buildWsUrl, resolveApiUrl } from './endpoints'
 
 const meters = [{ id: 'UTIL-1', name: 'Utility' }, { id: 'UPS-A', name: 'UPS A' }]
 const reading = (id, kw, epoch = 1) => ({ meter_id: id, power_kw: kw, epoch })
@@ -70,6 +70,21 @@ describe('alarmsByMeter', () => {
     expect(out['UPS-A'].priority).toBe(1)
     expect(out['GEN-1']).toBeUndefined()
     expect(out['PDU-A1']).toBeUndefined()
+  })
+})
+
+describe('resolveApiUrl', () => {
+  it('uses VITE_API_URL when set', () => {
+    expect(resolveApiUrl({ VITE_API_URL: 'https://api.example.com/', PROD: true })).toBe('https://api.example.com')
+  })
+
+  it('falls back to the live API in a production build', () => {
+    expect(resolveApiUrl({ PROD: true })).toBe(LIVE_API_URL)
+    expect(resolveApiUrl({ VITE_API_URL: '  ', PROD: true })).toBe(LIVE_API_URL)
+  })
+
+  it('uses the same origin on the dev server', () => {
+    expect(resolveApiUrl({ PROD: false })).toBe('')
   })
 })
 
