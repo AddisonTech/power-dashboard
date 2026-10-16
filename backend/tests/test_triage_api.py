@@ -21,7 +21,7 @@ def test_export_returns_the_journal_format(client):
     assert res.headers["content-disposition"].startswith('attachment; filename="alarm-journal-')
     doc = res.json()
     assert doc["format"] == "bms-triage-journal" and doc["version"] == 1
-    assert doc["source"] == "power-dashboard 1.2.1"
+    assert doc["source"] == "power-dashboard 1.2.2"
     parsed = agent_journal.parse(doc)
     assert parsed.points and parsed.series
 
@@ -129,7 +129,7 @@ def test_the_agent_is_pinned_to_one_release():
 def test_the_installed_agent_is_0_2():
     import bms_alarm_triage
 
-    assert bms_alarm_triage.__version__ == "0.2.1"
+    assert bms_alarm_triage.__version__ == "0.2.2"
 
 
 @pytest.mark.parametrize("zone_name", ["America/New_York", "UTC"])

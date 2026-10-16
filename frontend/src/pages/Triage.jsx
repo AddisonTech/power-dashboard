@@ -45,7 +45,7 @@ function Consequences({ items, zone }) {
                 <span className="muted small mono">{clockIn(c.start, zone.name, zone.labels)}</span>
               </div>
               <div className="muted small mono tri-point">{c.point}</div>
-              <div className="small tri-cq-why">{evidenceText(c.evidence)}</div>
+              <div className="small tri-cq-why">{evidenceText(c.evidence, zone)}</div>
             </li>
           ))}
         </ul>
@@ -82,7 +82,7 @@ export function TriageItem({ item, zone }) {
       <figure className="tri-evidence">
         <figcaption className="tri-say-label">Trend evidence</figcaption>
         <EvidenceChart evidence={item.evidence} />
-        <p className="small muted">{evidenceText(item.evidence)}</p>
+        <p className="small muted">{evidenceText(item.evidence, zone)}</p>
       </figure>
 
       <Consequences items={item.consequences} zone={zone} />

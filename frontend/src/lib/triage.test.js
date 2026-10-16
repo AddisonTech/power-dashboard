@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chartGeometry, eventFinished, evidenceText, floodParts, itemWriter, reduction, ruleLabel, seconds, valueText, writerLabel,
+  chartGeometry, dipText, eventFinished, evidenceText, floodParts, itemWriter, reduction, ruleLabel, seconds, valueText, writerLabel,
 } from './triage'
 import outage from '../test/triage-outage.json'
+import outageUtc from '../test/triage-outage-utc.json'
 
 const cause = outage.triage.items[0]
 
@@ -59,5 +60,38 @@ describe('triage helpers', () => {
     expect(eventFinished(null, sc)).toBe(false)
     expect(eventFinished(sc, sc)).toBe(false)
     expect(eventFinished(null, null)).toBe(false)
+  })
+})
+
+describe('frequency dip', () => {
+  const dipOf = data => data.triage.items[0].consequences.find(c => c.signal === 'frequency_low').evidence.dip
+
+  it('reports the load step dip in the viewer zone, labeled', () => {
+    const ny = dipText(dipOf(outage), outage.zone)
+    expect(ny).toMatch(/^Load step \d\d:\d\d:\d\d EDT \(at the transfer\): worst 58\.\d\d Hz, 1\.\d\d Hz below the 60 Hz nominal, back within 0\.5 Hz at \d\d:\d\d:\d\d EDT, 2 s after the step\.$/)
+    const utc = dipText(dipOf(outageUtc), outageUtc.zone)
+    expect(utc).toMatch(/^Load step \d\d:\d\d:\d\d UTC .* \d\d:\d\d:\d\d UTC, 2 s after the step\.$/)
+  })
+
+  it('never shows a crank value', () => {
+    const text = dipText(dipOf(outage), outage.zone)
+    expect(text).not.toMatch(/(^|[^\d.])(0|20|40)\.00 Hz/)
+  })
+
+  it('shows no number when nothing was measured', () => {
+    const none = { measured: false, reason: 'no transfer to the emergency source and the generator never reached its rated 60 Hz in this export' }
+    const t = dipText(none)
+    expect(t).toBe('No dip measurement: no transfer to the emergency source and the generator never reached its rated 60 Hz in this export.')
+    expect(t).not.toMatch(/\d+\.\d\d Hz/)
+  })
+
+  it('says when the frequency never came back', () => {
+    const dip = { ...dipOf(outageUtc), recovered_at: null, recovery_s: null }
+    expect(dipText(dip, outageUtc.zone)).toMatch(/not back within 0\.5 Hz by \d\d:\d\d:\d\d UTC\.$/)
+  })
+
+  it('is what the consequence line shows', () => {
+    const c = outage.triage.items[0].consequences.find(x => x.signal === 'frequency_low')
+    expect(evidenceText(c.evidence, outage.zone)).toBe(dipText(c.evidence.dip, outage.zone))
   })
 })

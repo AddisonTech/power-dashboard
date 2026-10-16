@@ -261,3 +261,26 @@ def test_a_bad_zone_is_refused():
         triage.check_zone("Mars/Olympus")
     assert triage.check_zone(None) == "UTC"
     assert triage.check_zone("") == "UTC"
+
+
+# ------------------------------------------------- the generator frequency dip
+
+def test_the_outage_dip_is_the_load_step_not_the_crank():
+    """The simulator's generator cranks through 0, 20 and 40 Hz before it is
+    at rated. The dip reported is the one at the transfer, after rated."""
+    from datetime import datetime
+
+    _c, now = drive("utility_outage", duration=110)
+    out = triage.run(now, time_zone="UTC")
+    item = out["triage"]["items"][0]
+    dip_item = next(c for c in item["consequences"] if c["signal"] == "frequency_low")
+    ats = next(c for c in item["consequences"] if c["signal"] == "ats_transfer")
+    dip = dip_item["evidence"]["dip"]
+    assert dip["measured"] and dip["basis"] == "ats_transfer"
+    assert datetime.fromisoformat(dip["step_at"]) == datetime.fromisoformat(ats["start"])
+    assert datetime.fromisoformat(dip["rated_at"]) <= datetime.fromisoformat(dip["step_at"])
+    assert 58.0 < dip["worst_hz"] < 59.5
+    assert 0.5 < dip["below_nominal_hz"] < 2.0
+    assert 0 < dip["recovery_s"] <= 6
+    assert dip_item["evidence"]["worst_value"] == dip["worst_hz"]
+    assert "Hz below the 60 Hz nominal, back within 0.5 Hz at " in dip_item["finding"]
