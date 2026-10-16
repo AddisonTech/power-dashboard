@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useState } from 'react'
 import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
-import { LayoutDashboard, GitBranch, Gauge, Bell, TrendingUp, Settings, Zap, Info, FlaskConical } from 'lucide-react'
+import { LayoutDashboard, GitBranch, Gauge, Bell, ListOrdered, TrendingUp, Settings, Zap, Info, FlaskConical } from 'lucide-react'
 import { LiveFeedProvider, useFeed } from './services/LiveFeed'
 import WakeScreen from './components/WakeScreen'
 import AboutPanel from './components/AboutPanel'
@@ -14,12 +14,14 @@ import './App.css'
 // Chart heavy pages load on demand to keep the first load small
 const Meters = lazy(() => import('./pages/Meters'))
 const Trending = lazy(() => import('./pages/Trending'))
+const Triage = lazy(() => import('./pages/Triage'))
 
 const NAV = [
   { to: '/',         icon: LayoutDashboard, label: 'Overview' },
   { to: '/one-line', icon: GitBranch,       label: 'One-Line' },
   { to: '/meters',   icon: Gauge,           label: 'Meters' },
   { to: '/alarms',   icon: Bell,            label: 'Alarms', alarms: true },
+  { to: '/triage',   icon: ListOrdered,     label: 'Triage' },
   { to: '/trending', icon: TrendingUp,      label: 'Trends' },
   { to: '/settings', icon: Settings,        label: 'System' },
 ]
@@ -94,6 +96,7 @@ function Shell() {
               <Route path="/one-line" element={<OneLineDiagram />} />
               <Route path="/meters" element={<Meters />} />
               <Route path="/alarms" element={<Alarms />} />
+              <Route path="/triage" element={<Triage />} />
               <Route path="/trending" element={<Trending />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
