@@ -1,0 +1,37 @@
+{
+  "defaults": {
+    "port": 502,
+    "timeout": 2.0,
+    "word_order": "big"
+  },
+  "devices": [
+    {
+      "meter_id": "UTIL-1",
+      "host": "meter-util.example.internal",
+      "unit_id": 1,
+      "registers": {
+        "voltage":      { "address": 3000, "type": "float32", "function": "holding" },
+        "current":      { "address": 3002, "type": "float32", "function": "holding" },
+        "power_kw":     { "address": 3004, "type": "float32", "function": "holding" },
+        "power_factor": { "address": 3006, "type": "float32", "function": "holding" },
+        "frequency":    { "address": 3008, "type": "float32", "function": "holding" },
+        "energy_kwh":   { "address": 3010, "type": "uint32",  "function": "holding", "scale": 0.1 },
+        "demand_kw":    { "address": 3012, "type": "float32", "function": "holding" }
+      }
+    },
+    {
+      "meter_id": "UPS-A",
+      "host": "ups-a.example.internal",
+      "unit_id": 1,
+      "registers": {
+        "voltage":      { "address": 100, "type": "uint16", "function": "input", "scale": 0.1 },
+        "current":      { "address": 101, "type": "uint16", "function": "input", "scale": 0.1 },
+        "power_kw":     { "address": 102, "type": "uint16", "function": "input", "scale": 0.1 },
+        "power_factor": { "address": 103, "type": "uint16", "function": "input", "scale": 0.001 },
+        "frequency":    { "address": 104, "type": "uint16", "function": "input", "scale": 0.01 },
+        "battery_soc":  { "address": 110, "type": "uint16", "function": "input" },
+        "on_battery":   { "address": 0,   "type": "bool",   "function": "discrete" }
+      }
+    }
+  ]
+}
