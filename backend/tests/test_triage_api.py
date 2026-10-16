@@ -114,9 +114,19 @@ def test_the_hosted_demo_sets_no_api_key():
     assert "ANTHROPIC" not in blueprint
 
 
-def test_the_agent_is_pinned_to_a_release_tag():
+def test_the_agent_is_pinned_to_one_release():
+    """A tag or a full commit, never a branch that can move under the server."""
+    import re
     from pathlib import Path
 
     requirements = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text()
     line = next(l for l in requirements.splitlines() if l.startswith("bms-alarm-triage-agent"))
-    assert "@ git+https://github.com/AddisonTech/bms-alarm-triage-agent@v" in line
+    ref = line.rsplit("@", 1)[1]
+    assert line.startswith("bms-alarm-triage-agent @ git+https://github.com/AddisonTech/bms-alarm-triage-agent@")
+    assert re.fullmatch(r"v\d+\.\d+\.\d+|[0-9a-f]{40}", ref)
+
+
+def test_the_installed_agent_is_0_2():
+    import bms_alarm_triage
+
+    assert bms_alarm_triage.__version__.startswith("0.2.")
