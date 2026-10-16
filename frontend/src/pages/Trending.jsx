@@ -1,144 +1,129 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
-} from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useFeed } from '../services/LiveFeed'
 import { api } from '../services/api'
 
-const COLORS = ['#00b4d8', '#22c55e', '#f59e0b', '#a78bfa', '#ef4444', '#fb923c', '#34d399', '#60a5fa']
-const PARAMETERS = ['power_kw', 'voltage', 'current', 'power_factor', 'demand_kw', 'frequency']
+const COLORS = ['#60a5fa', '#34d399', '#f59e0b', '#c084fc', '#f472b6', '#22d3ee', '#a3e635', '#fb923c']
+const PARAMETERS = {
+  power_kw: 'Power (kW)',
+  load_pct: 'Load (% of rating)',
+  current: 'Current (A)',
+  voltage: 'Voltage (V)',
+  power_factor: 'Power factor',
+  frequency: 'Frequency (Hz)',
+  demand_kw: 'Demand (kW)',
+}
 
 export default function Trending() {
-  const [meters, setMeters] = useState([])
-  const [selectedMeters, setSelectedMeters] = useState([1, 2])
+  const { meters } = useFeed()
+  const [selected, setSelected] = useState(['UTIL-1', 'UPS-A', 'UPS-B', 'MECH-1'])
   const [parameter, setParameter] = useState('power_kw')
   const [period, setPeriod] = useState('1h')
-  const [chartData, setChartData] = useState([])
+  const [series, setSeries] = useState({})
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    api.getMeters().then(setMeters).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (selectedMeters.length === 0) return
+    let cancelled = false
     setLoading(true)
-    Promise.all(selectedMeters.map(id => api.getMeterHistory(id, period)))
-      .then(results => {
-        // Merge by timestamp index
-        const merged = {}
-        results.forEach((rows, idx) => {
-          rows.forEach(row => {
-            const key = row.timestamp
-            if (!merged[key]) merged[key] = { time: new Date(row.timestamp).toLocaleTimeString() }
-            merged[key][`m${selectedMeters[idx]}`] = row[parameter]
-          })
-        })
-        setChartData(Object.values(merged).sort((a, b) => a.time > b.time ? 1 : -1))
-      })
-      .finally(() => setLoading(false))
-  }, [selectedMeters, parameter, period])
+    Promise.all(selected.map(id => api.getMeterHistory(id, period).then(rows => [id, rows]).catch(() => [id, []])))
+      .then(results => { if (!cancelled) setSeries(Object.fromEntries(results)) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [selected, period])
 
-  const toggleMeter = (id) => {
-    setSelectedMeters(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
-  }
+  // History buckets share boundaries across meters, so merge on epoch
+  const data = useMemo(() => {
+    const merged = {}
+    for (const id of selected) {
+      for (const row of series[id] || []) {
+        merged[row.epoch] = merged[row.epoch] || { epoch: row.epoch }
+        merged[row.epoch][id] = row[parameter]
+      }
+    }
+    return Object.values(merged).sort((a, b) => a.epoch - b.epoch)
+  }, [series, selected, parameter])
+
+  const toggle = id => setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
   const exportCSV = () => {
-    const headers = ['time', ...selectedMeters.map(id => `Meter_${id}_${parameter}`)]
-    const rows = chartData.map(row => headers.map(h => row[h] ?? '').join(','))
-    const csv = [headers.join(','), ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const header = ['timestamp_utc', ...selected.map(id => `${id}_${parameter}`)]
+    const rows = data.map(r => [new Date(r.epoch * 1000).toISOString(), ...selected.map(id => r[id] ?? '')].join(','))
+    const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `trending_${parameter}_${period}.csv`; a.click()
+    a.href = url
+    a.download = `trend_${parameter}_${period}.csv`
+    a.click()
     URL.revokeObjectURL(url)
   }
 
+  const tickFmt = t => new Date(t * 1000).toLocaleString([], period === '7d'
+    ? { month: 'short', day: 'numeric' } : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
   return (
-    <div>
+    <div className="page">
       <div className="page-header">
-        <h2>Trending</h2>
-        <p>Multi-meter historical comparison</p>
+        <div>
+          <h2>Trends</h2>
+          <p>Compare meters over time. History is averaged into about 360 points per period.</p>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={exportCSV} disabled={!data.length}>
+          <Download size={14} /> Export CSV
+        </button>
       </div>
 
-      {/* Controls */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-              Meters
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {meters.map(m => (
-                <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedMeters.includes(m.id)}
-                    onChange={() => toggleMeter(m.id)}
-                  />
-                  <span style={{ color: selectedMeters.includes(m.id) ? COLORS[(selectedMeters.indexOf(m.id)) % COLORS.length] : 'var(--text-secondary)' }}>
-                    {m.name}
-                  </span>
-                </label>
-              ))}
-            </div>
+      <div className="card trend-card-controls">
+        <div className="control-group">
+          <div className="control-label">Meters</div>
+          <div className="chip-row">
+            {meters.map(m => {
+              const idx = selected.indexOf(m.id)
+              return (
+                <button key={m.id} className={`chip${idx >= 0 ? ' on' : ''}`} onClick={() => toggle(m.id)}
+                  style={idx >= 0 ? { borderColor: COLORS[idx % COLORS.length], color: COLORS[idx % COLORS.length] } : undefined}>
+                  {m.name}
+                </button>
+              )
+            })}
           </div>
-
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-              Parameter
-            </div>
-            <select value={parameter} onChange={e => setParameter(e.target.value)}>
-              {PARAMETERS.map(p => <option key={p} value={p}>{p}</option>)}
+        </div>
+        <div className="control-row">
+          <div className="control-group">
+            <div className="control-label">Parameter</div>
+            <select value={parameter} onChange={e => setParameter(e.target.value)} aria-label="Parameter">
+              {Object.entries(PARAMETERS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
-
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-              Period
-            </div>
-            <div className="period-selector">
+          <div className="control-group">
+            <div className="control-label">Period</div>
+            <div className="seg">
               {['1h', '24h', '7d'].map(p => (
-                <button key={p} className={`period-btn${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>
-                  {p}
-                </button>
+                <button key={p} className={`seg-btn${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{p}</button>
               ))}
             </div>
-          </div>
-
-          <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={exportCSV}>
-              <Download size={14} /> Export CSV
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Chart */}
       <div className="card">
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Loading...</div>
+        {selected.length === 0 ? (
+          <div className="empty-state"><p>Select one or more meters.</p></div>
+        ) : loading && !data.length ? (
+          <div className="empty-state"><p>Loading...</p></div>
         ) : (
-          <ResponsiveContainer width="100%" height={360}>
-            <LineChart data={chartData} margin={{ top: 5, right: 24, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" />
-              <XAxis dataKey="time" tick={{ fill: '#606060', fontSize: 10 }} tickLine={false} interval="preserveStartEnd" />
-              <YAxis tick={{ fill: '#606060', fontSize: 10 }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8 }} labelStyle={{ color: '#a0a0a0' }} />
-              <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-              {selectedMeters.map((id, i) => (
-                <Line
-                  key={id}
-                  type="monotone"
-                  dataKey={`m${id}`}
-                  name={meters.find(m => m.id === id)?.name || `Meter ${id}`}
-                  stroke={COLORS[i % COLORS.length]}
-                  dot={false}
-                  strokeWidth={1.5}
-                />
+          <ResponsiveContainer width="100%" height={380}>
+            <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--grid)" />
+              <XAxis dataKey="epoch" type="number" domain={['dataMin', 'dataMax']} tickFormatter={tickFmt}
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickLine={false} minTickGap={50} />
+              <YAxis domain={['auto', 'auto']} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={52} />
+              <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}
+                labelFormatter={t => new Date(t * 1000).toLocaleString()} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {selected.map((id, i) => (
+                <Line key={id} type="monotone" dataKey={id} name={meters.find(m => m.id === id)?.name || id}
+                  stroke={COLORS[i % COLORS.length]} dot={false} strokeWidth={1.6} isAnimationActive={false} connectNulls />
               ))}
             </LineChart>
           </ResponsiveContainer>

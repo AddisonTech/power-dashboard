@@ -1,168 +1,204 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { X } from 'lucide-react'
+import { useFeed } from '../services/LiveFeed'
+import { alarmsByMeter } from '../services/feed'
+import { PriorityBadge, StateBadge } from '../components/Badges'
+import { ANNUNCIATED } from '../lib/alarms'
+import { num } from '../lib/format'
 
-const LAYOUT = {
-  utility:    { x: 400, y: 50,  w: 120, h: 50 },
-  switchgear: { x: 400, y: 160, w: 120, h: 50 },
-  panelA:     { x: 220, y: 280, w: 110, h: 50 },
-  panelB:     { x: 580, y: 280, w: 110, h: 50 },
-  rowA1:      { x: 130, y: 400, w: 100, h: 45 },
-  rowA2:      { x: 310, y: 400, w: 100, h: 45 },
-  crac1:      { x: 500, y: 400, w: 100, h: 45 },
-  crac2:      { x: 660, y: 400, w: 100, h: 45 },
+// Two layouts: landscape for desktop, portrait for phones. Positions are
+// node center x and top y in SVG units.
+const LAYOUTS = {
+  wide: {
+    width: 900, height: 560, busY: 318, busX: [150, 850], srcY: 100, pduY: 450, atsIn: 40, labelGap: 30,
+    nodes: {
+      'UTIL-1': { x: 300, y: 16, w: 160 },
+      'GEN-1':  { x: 620, y: 16, w: 160 },
+      'ATS-1':  { x: 460, y: 128, w: 224 },
+      'MSB-1':  { x: 460, y: 232, w: 190 },
+      'UPS-A':  { x: 230, y: 350, w: 150 },
+      'UPS-B':  { x: 530, y: 350, w: 150 },
+      'MECH-1': { x: 770, y: 350, w: 150 },
+      'PDU-A1': { x: 150, y: 482, w: 136 },
+      'PDU-A2': { x: 310, y: 482, w: 136 },
+      'PDU-B1': { x: 450, y: 482, w: 136 },
+      'PDU-B2': { x: 610, y: 482, w: 136 },
+    },
+  },
+  narrow: {
+    width: 400, height: 672, busY: 312, busX: [10, 390], srcY: 96, pduY: 436, atsIn: 30, labelGap: 22,
+    nodes: {
+      'UTIL-1': { x: 102, y: 10, w: 184 },
+      'GEN-1':  { x: 298, y: 10, w: 184 },
+      'ATS-1':  { x: 200, y: 122, w: 230 },
+      'MSB-1':  { x: 200, y: 222, w: 230 },
+      'UPS-A':  { x: 104, y: 334, w: 182 },
+      'UPS-B':  { x: 296, y: 334, w: 182 },
+      'PDU-A1': { x: 54, y: 462, w: 96 },
+      'PDU-A2': { x: 151, y: 462, w: 96 },
+      'PDU-B1': { x: 249, y: 462, w: 96 },
+      'PDU-B2': { x: 346, y: 462, w: 96 },
+      'MECH-1': { x: 200, y: 598, w: 230 },
+    },
+  },
+}
+const H = 64
+
+function useNarrow(query = '(max-width: 720px)') {
+  const get = () => typeof window !== 'undefined' && window.matchMedia?.(query).matches
+  const [narrow, setNarrow] = useState(get)
+  useEffect(() => {
+    const mq = window.matchMedia?.(query)
+    if (!mq) return undefined
+    const on = () => setNarrow(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [query])
+  return narrow
 }
 
-const METER_KEYS = [null, 'utility', 'switchgear', 'panelA', 'panelB', 'rowA1', 'rowA2', 'crac1', 'crac2']
-
-function getStatusColor(reading, nomV = 480, nomI = 100) {
-  if (!reading) return '#4b5563'
-  const v = reading.voltage
-  if (v > nomV * 1.10 || v < nomV * 0.90 || reading.power_factor < 0.75) return '#ef4444'
-  if (v > nomV * 1.05 || v < nomV * 0.95 || reading.power_factor < 0.85) return '#f59e0b'
-  return '#22c55e'
+function Wire({ d, state }) {
+  return <path d={d} className={`wire wire-${state}`} fill="none" />
 }
 
-function MeterNode({ nodeKey, reading, meter, selected, onClick }) {
-  const pos = LAYOUT[nodeKey]
-  const color = getStatusColor(reading, meter?.nominal_voltage, meter?.nominal_current)
+function Node({ n, id, meter, reading, alarm, selected, onSelect }) {
+  const compact = n.w < 120
+  const r = reading || {}
+  const dead = (r.voltage ?? 0) < 1
+  const statusCls = (r.status || '').toLowerCase().replace(/\s+/g, '-')
+  let line2 = compact ? `${num(r.power_kw, 0)}kW ${num(r.load_pct, 0)}%` : `${num(r.power_kw, 0)} kW   ${num(r.load_pct, 0)}%`
+  if (meter.type === 'ups') line2 = `${num(r.power_kw, 0)} kW   batt ${num(r.battery_soc, 0)}%`
+  if (meter.type === 'generator' && dead) line2 = '0 kW'
+  if (meter.type === 'ats') line2 = `${num(r.power_kw, 0)} kW   ${r.position === 'GENERATOR' ? 'E' : 'N'} closed`
 
   return (
-    <g transform={`translate(${pos.x - pos.w / 2}, ${pos.y})`} style={{ cursor: 'pointer' }} onClick={onClick}>
-      <rect
-        width={pos.w} height={pos.h}
-        rx={6}
-        fill={selected ? 'rgba(0,180,216,0.15)' : 'rgba(30,30,30,0.95)'}
-        stroke={selected ? '#00b4d8' : color}
-        strokeWidth={selected ? 2 : 1.5}
-      />
-      <text x={pos.w / 2} y={16} textAnchor="middle" fill="#e8e8e8" fontSize={10} fontWeight="600">
-        {meter?.name ?? nodeKey}
-      </text>
-      <text x={pos.w / 2} y={28} textAnchor="middle" fill={color} fontSize={9} fontFamily="monospace">
-        {reading ? `${reading.voltage?.toFixed(0)}V  ${reading.current?.toFixed(0)}A` : 'No data'}
-      </text>
-      <text x={pos.w / 2} y={40} textAnchor="middle" fill="#a0a0a0" fontSize={9} fontFamily="monospace">
-        {reading ? `${reading.power_kw?.toFixed(1)}kW  PF${reading.power_factor?.toFixed(2)}` : ''}
-      </text>
-      <circle cx={pos.w - 8} cy={8} r={4} fill={color} />
+    <g transform={`translate(${n.x - n.w / 2}, ${n.y})`} className={`ol-node${selected ? ' selected' : ''}${dead ? ' dead' : ''}${alarm ? ` p${alarm.priority} alarmed` : ''}`}
+      onClick={() => onSelect(id)} role="button" tabIndex={0}
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onSelect(id)}
+      aria-label={`${meter.name}, ${r.status || 'no data'}`}>
+      <rect width={n.w} height={H} rx={8} className="ol-box" />
+      <text x={compact ? 8 : 12} y={20} className="ol-name">{meter.name}</text>
+      <text x={compact ? 8 : 12} y={37} className={`ol-status status-${statusCls}`}>{r.status || '--'}</text>
+      <text x={compact ? 8 : 12} y={54} className="ol-values">{line2}</text>
+      {alarm && <circle cx={n.w - 12} cy={12} r={5} className="ol-alarm-dot" />}
     </g>
   )
 }
 
-function Bus({ x, y1, y2, label }) {
-  return (
-    <g>
-      <line x1={x} y1={y1} x2={x} y2={y2} stroke="#2a2a2a" strokeWidth={8} />
-      <line x1={x} y1={y1} x2={x} y2={y2} stroke="#383838" strokeWidth={3} />
-      {label && (
-        <text x={x + 12} y={(y1 + y2) / 2} fill="#606060" fontSize={10}>{label}</text>
-      )}
-    </g>
-  )
-}
-
-export default function OneLineDiagram({ readings }) {
+export default function OneLineDiagram() {
+  const { meterById, readings, alarms } = useFeed()
   const [selected, setSelected] = useState(null)
+  const byMeter = useMemo(() => alarmsByMeter(alarms), [alarms])
 
-  const nodeKeys = ['utility', 'switchgear', 'panelA', 'panelB', 'rowA1', 'rowA2', 'crac1', 'crac2']
-  const metersByKey = {}
-  METER_KEYS.forEach((key, idx) => {
-    if (key) metersByKey[key] = {
-      id: idx,
-      name: key === 'utility' ? 'Utility Feed'
-          : key === 'switchgear' ? 'Main Switchgear'
-          : key === 'panelA' ? 'Panel A'
-          : key === 'panelB' ? 'Panel B'
-          : key === 'rowA1' ? 'Server Row A1'
-          : key === 'rowA2' ? 'Server Row A2'
-          : key === 'crac1' ? 'CRAC Unit 1'
-          : 'CRAC Unit 2',
-      nominal_voltage: 480,
-      nominal_current: [800, 750, 400, 350, 120, 120, 180, 170][idx - 1] || 100,
-    }
-  })
+  const live = id => (readings[id]?.voltage ?? 0) > 50
+  const onGen = readings['ATS-1']?.position === 'GENERATOR'
+  const msbLive = live('MSB-1')
+  const wire = (energized, carrying) => (!energized ? 'dead' : carrying ? 'flow' : 'live')
 
-  const selectedReading = selected ? readings[METER_KEYS.indexOf(selected)] : null
+  const L = LAYOUTS[useNarrow() ? 'narrow' : 'wide']
+  const NODES = L.nodes
+  const bottom = id => NODES[id].y + H
+  const ats = NODES['ATS-1']
+  const { busY, srcY, pduY } = L
+  const select = id => setSelected(s => (s === id ? null : id))
+  const sel = selected && meterById[selected]
+  const selReading = selected ? readings[selected] || {} : null
+  const selAlarms = selected ? alarms.filter(a => a.meter_id === selected && ANNUNCIATED.includes(a.state)) : []
 
   return (
-    <div style={{ display: 'flex', gap: 24, height: '100%' }}>
-      <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-          ELECTRICAL DISTRIBUTION ONE-LINE DIAGRAM
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h2>One-line diagram</h2>
+          <p>Live power path from the sources to the IT load. Select any equipment for details.</p>
         </div>
-        <svg width="100%" viewBox="0 0 820 480" style={{ display: 'block' }}>
-          {/* Background */}
-          <rect width="820" height="480" fill="var(--bg-card)" />
-
-          {/* Buses */}
-          <Bus x={460} y1={100} y2={160} />
-          <line x1={340} y1={135} x2={580} y2={135} stroke="#383838" strokeWidth={3} />
-
-          {/* Panel connections */}
-          <line x1={280} y1={210} x2={280} y2={280} stroke="#2a2a2a" strokeWidth={6} />
-          <line x1={280} y1={210} x2={280} y2={280} stroke="#383838" strokeWidth={2} />
-          <line x1={635} y1={210} x2={635} y2={280} stroke="#2a2a2a" strokeWidth={6} />
-          <line x1={635} y1={210} x2={635} y2={280} stroke="#383838" strokeWidth={2} />
-          <line x1={340} y1={210} x2={580} y2={210} stroke="#383838" strokeWidth={2} />
-
-          {/* Sub-meter connections */}
-          <line x1={180} y1={330} x2={180} y2={400} stroke="#2a2a2a" strokeWidth={4} />
-          <line x1={180} y1={330} x2={180} y2={400} stroke="#383838" strokeWidth={1.5} />
-          <line x1={360} y1={330} x2={360} y2={400} stroke="#2a2a2a" strokeWidth={4} />
-          <line x1={360} y1={330} x2={360} y2={400} stroke="#383838" strokeWidth={1.5} />
-          <line x1={180} y1={330} x2={360} y2={330} stroke="#383838" strokeWidth={1.5} />
-
-          <line x1={550} y1={330} x2={550} y2={400} stroke="#2a2a2a" strokeWidth={4} />
-          <line x1={550} y1={330} x2={550} y2={400} stroke="#383838" strokeWidth={1.5} />
-          <line x1={710} y1={330} x2={710} y2={400} stroke="#2a2a2a" strokeWidth={4} />
-          <line x1={710} y1={330} x2={710} y2={400} stroke="#383838" strokeWidth={1.5} />
-          <line x1={550} y1={330} x2={710} y2={330} stroke="#383838" strokeWidth={1.5} />
-
-          {/* Nodes */}
-          {nodeKeys.map((key, i) => (
-            <MeterNode
-              key={key}
-              nodeKey={key}
-              meter={metersByKey[key]}
-              reading={readings[i + 1]}
-              selected={selected === key}
-              onClick={() => setSelected(selected === key ? null : key)}
-            />
-          ))}
-
-          {/* Labels */}
-          <text x={10} y={460} fill="#383838" fontSize={10}>Power Dashboard - Electrical Distribution System</text>
-        </svg>
       </div>
 
-      {/* Side panel */}
-      {selected && selectedReading && (
-        <div style={{ width: 280, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--accent-border)', padding: 20, flexShrink: 0 }}>
-          <div style={{ fontWeight: 600, marginBottom: 16, color: 'var(--accent)' }}>
-            {metersByKey[selected]?.name?.toUpperCase() ?? selected.toUpperCase()}
+      <div className="ol-layout">
+        <div className="card ol-card">
+          <div className="ol-legend">
+            <span><i className="lg lg-flow" /> Carrying load</span>
+            <span><i className="lg lg-live" /> Energized</span>
+            <span><i className="lg lg-dead" /> De-energized</span>
           </div>
-          {[
-            ['Voltage',       selectedReading.voltage?.toFixed(2),      'V'],
-            ['Current',       selectedReading.current?.toFixed(2),      'A'],
-            ['Power',         selectedReading.power_kw?.toFixed(2),     'kW'],
-            ['Power Factor',  selectedReading.power_factor?.toFixed(4), ''],
-            ['Frequency',     selectedReading.frequency?.toFixed(3),    'Hz'],
-            ['Demand',        selectedReading.demand_kw?.toFixed(2),    'kW'],
-            ['Energy',        selectedReading.energy_kwh?.toFixed(1),   'kWh'],
-          ].map(([label, val, unit]) => (
-            <div key={label} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 0', borderBottom: '1px solid var(--border)'
-            }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                {val} <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{unit}</span>
-              </span>
-            </div>
-          ))}
-          <button className="btn btn-ghost" style={{ marginTop: 16, width: '100%' }}
-            onClick={() => setSelected(null)}>Close</button>
+          <div className="ol-scroll">
+            <svg viewBox={`0 0 ${L.width} ${L.height}`} className={`ol-svg ol-${L.width < 500 ? 'narrow' : 'wide'}`}
+              role="img" aria-label="Electrical one-line diagram">
+              {/* Sources to ATS */}
+              <Wire d={`M${NODES['UTIL-1'].x},${bottom('UTIL-1')} V${srcY} H${ats.x - L.atsIn} V${ats.y}`} state={wire(live('UTIL-1'), !onGen && msbLive)} />
+              <Wire d={`M${NODES['GEN-1'].x},${bottom('GEN-1')} V${srcY} H${ats.x + L.atsIn} V${ats.y}`} state={wire(live('GEN-1'), onGen && msbLive)} />
+              <text x={ats.x - L.atsIn - L.labelGap} y={srcY - 4} className="ol-wire-label">N</text>
+              <text x={ats.x + L.atsIn + L.labelGap - 8} y={srcY - 4} className="ol-wire-label">E</text>
+
+              {/* ATS to switchboard to bus */}
+              <Wire d={`M${ats.x},${bottom('ATS-1')} V${NODES['MSB-1'].y}`} state={wire(msbLive, msbLive)} />
+              <Wire d={`M${ats.x},${bottom('MSB-1')} V${busY}`} state={wire(msbLive, msbLive)} />
+              <line x1={L.busX[0]} x2={L.busX[1]} y1={busY} y2={busY} className={`bus bus-${msbLive ? 'live' : 'dead'}`} />
+              <text x={L.busX[0] + 2} y={busY - 8} className="ol-wire-label">480 V MAIN BUS</text>
+
+              {/* Bus to UPS and mechanical */}
+              {['UPS-A', 'UPS-B', 'MECH-1'].map(id => (
+                <Wire key={id} d={`M${NODES[id].x},${busY} V${NODES[id].y}`}
+                  state={wire(msbLive, msbLive && (readings[id]?.input_kw ?? readings[id]?.power_kw ?? 0) > 0)} />
+              ))}
+
+              {/* UPS to PDUs */}
+              {[['UPS-A', ['PDU-A1', 'PDU-A2']], ['UPS-B', ['PDU-B1', 'PDU-B2']]].map(([ups, pdus]) => (
+                <g key={ups}>
+                  <Wire d={`M${NODES[ups].x},${bottom(ups)} V${pduY}`} state={wire(live(ups), true)} />
+                  <Wire d={`M${NODES[pdus[0]].x},${pduY} H${NODES[pdus[1]].x}`} state={wire(live(ups), true)} />
+                  {pdus.map(p => <Wire key={p} d={`M${NODES[p].x},${pduY} V${NODES[p].y}`} state={wire(live(ups), true)} />)}
+                </g>
+              ))}
+
+              {Object.keys(NODES).filter(id => meterById[id]).map(id => (
+                <Node key={id} id={id} n={NODES[id]} meter={meterById[id]} reading={readings[id]} alarm={byMeter[id]}
+                  selected={selected === id} onSelect={select} />
+              ))}
+            </svg>
+          </div>
         </div>
-      )}
+
+        {sel && (
+          <div className="card ol-detail">
+            <div className="card-head">
+              <h3>{sel.name}</h3>
+              <button className="icon-btn" onClick={() => setSelected(null)} aria-label="Close"><X size={16} /></button>
+            </div>
+            <p className="muted small">{sel.description}</p>
+            <dl className="kv">
+              {[
+                ['Status', selReading.status],
+                ['Voltage', `${num(selReading.voltage)} V`],
+                ['Current', `${num(selReading.current)} A`],
+                ['Power', `${num(selReading.power_kw)} kW`],
+                ['Power factor', num(selReading.power_factor, 3)],
+                ['Frequency', `${num(selReading.frequency, 2)} Hz`],
+                ['Load', `${num(selReading.load_pct)} %`],
+                ['Demand (15 min)', `${num(selReading.demand_kw)} kW`],
+                ...(sel.type === 'ups' ? [
+                  ['Battery charge', `${num(selReading.battery_soc)} %`],
+                  ['Battery runtime', `${num(selReading.battery_runtime_min, 0)} min`],
+                  ['Input power', `${num(selReading.input_kw)} kW`],
+                ] : []),
+              ].map(([k, v]) => <div key={k}><dt>{k}</dt><dd className="mono">{v}</dd></div>)}
+            </dl>
+            {selAlarms.length > 0 && (
+              <ul className="mini-alarms">
+                {selAlarms.map(a => (
+                  <li key={a.tag} className={`p${a.priority}`}>
+                    <PriorityBadge priority={a.priority} compact />
+                    <div className="mini-alarm-text">{a.message}</div>
+                    <StateBadge state={a.state} priority={a.priority} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link className="btn btn-ghost btn-sm" to={`/meters?id=${sel.id}`}>Open meter detail</Link>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

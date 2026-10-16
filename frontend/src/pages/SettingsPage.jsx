@@ -1,79 +1,96 @@
-import React from 'react'
-import { Settings, Database, Wifi, Bell } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Wifi, Database, User, Cpu } from 'lucide-react'
+import { useFeed } from '../services/LiveFeed'
+import { api } from '../services/api'
+import { API_URL, WS_URL } from '../services/endpoints'
+import { getOperator, setOperator } from '../lib/operator'
+import { PriorityBadge } from '../components/Badges'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const WS_URL = API_URL.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/ws/live'
+function Rows({ rows }) {
+  return (
+    <dl className="kv">
+      {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd className="mono">{v}</dd></div>)}
+    </dl>
+  )
+}
 
 export default function SettingsPage() {
+  const { system, demo } = useFeed()
+  const [cfg, setCfg] = useState(null)
+  const [name, setName] = useState(getOperator)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => { api.getConfig().then(setCfg).catch(() => {}) }, [])
+
+  const save = (e) => {
+    e.preventDefault()
+    setOperator(name.trim() || 'demo visitor')
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
   return (
-    <div>
+    <div className="page">
       <div className="page-header">
-        <h2>Settings</h2>
-        <p>System configuration and preferences</p>
+        <div>
+          <h2>System</h2>
+          <p>Data source, connection, and alarm configuration</p>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 640 }}>
+      <div className="settings-grid">
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontWeight: 600, color: 'var(--text-secondary)' }}>
-            <Wifi size={16} /> CONNECTION
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { label: 'API Endpoint',      value: API_URL },
-              { label: 'WebSocket',          value: WS_URL },
-              { label: 'Poll Interval',      value: '5 seconds' },
-              { label: 'WS Broadcast Rate',  value: '2 seconds' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{label}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--accent)' }}>{value}</span>
-              </div>
-            ))}
-          </div>
+          <div className="card-head"><h3><Cpu size={14} /> Data source</h3></div>
+          <Rows rows={[
+            ['Mode', system?.simulated ? 'Simulator (demo)' : 'Modbus TCP'],
+            ['Scan interval', `${cfg?.poll_interval_s ?? demo?.poll_interval_s ?? '--'} s`],
+            ['History interval', `${cfg?.history_interval_s ?? '--'} s`],
+            ['Meters online', `${system?.meters_online ?? '--'} / ${system?.meter_count ?? '--'}`],
+            ['Version', cfg?.version ?? demo?.version ?? '--'],
+          ]} />
+          <p className="muted small">
+            Real meters are polled over Modbus TCP when the backend runs with DATA_SOURCE=modbus and a
+            register map. See the README for setup.
+          </p>
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontWeight: 600, color: 'var(--text-secondary)' }}>
-            <Bell size={16} /> ALARM THRESHOLDS
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { label: 'Voltage High Critical',  value: '110% of nominal' },
-              { label: 'Voltage High Warning',   value: '105% of nominal' },
-              { label: 'Voltage Low Warning',    value: '95% of nominal'  },
-              { label: 'Voltage Low Critical',   value: '90% of nominal'  },
-              { label: 'Current High Critical',  value: '100% of nominal' },
-              { label: 'Current High Warning',   value: '85% of nominal'  },
-              { label: 'Power Factor Warning',   value: 'PF < 0.85'       },
-              { label: 'Power Factor Critical',  value: 'PF < 0.75'       },
-              { label: 'Frequency Warning',      value: '59.5 - 60.5 Hz'  },
-              { label: 'Frequency Critical',     value: '59.0 - 61.0 Hz'  },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{label}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{value}</span>
-              </div>
-            ))}
-          </div>
+          <div className="card-head"><h3><Wifi size={14} /> Connection</h3></div>
+          <Rows rows={[
+            ['API', API_URL || window.location.origin],
+            ['WebSocket', WS_URL],
+          ]} />
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontWeight: 600, color: 'var(--text-secondary)' }}>
-            <Database size={16} /> DATA RETENTION
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { label: 'Reading Retention', value: '7 days' },
-              { label: 'Alarm History',     value: 'Indefinite' },
-              { label: 'Database',          value: 'SQLite (power_dashboard.db)' },
-              { label: 'Prune Interval',    value: 'Every 1 hour' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{label}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{value}</span>
-              </div>
+          <div className="card-head"><h3><User size={14} /> Operator</h3></div>
+          <form className="operator-form" onSubmit={save}>
+            <label htmlFor="op-name" className="muted small">Name recorded in the alarm journal for acknowledge and shelve actions</label>
+            <div className="operator-row">
+              <input id="op-name" type="text" value={name} maxLength={40} onChange={e => setName(e.target.value)} />
+              <button className="btn btn-primary btn-sm" type="submit">{saved ? 'Saved' : 'Save'}</button>
+            </div>
+          </form>
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3><Database size={14} /> Retention</h3></div>
+          <Rows rows={[
+            ['Readings', `${cfg?.retention_days ?? '--'} days`],
+            ['Alarm journal', `${cfg?.retention_days ?? '--'} days`],
+            ['Shelving limit', `${cfg?.shelve_max_min ?? '--'} min`],
+            ['Database', 'SQLite'],
+          ]} />
+        </div>
+
+        <div className="card span-2">
+          <div className="card-head"><h3>Alarm priorities</h3></div>
+          <p className="muted small">Priority comes from the consequence of not responding and the time available to respond.</p>
+          <dl className="kv">
+            {cfg && Object.entries(cfg.priorities).map(([p, info]) => (
+              <div key={p}><dt><PriorityBadge priority={Number(p)} /></dt><dd>{info.response}</dd></div>
             ))}
-          </div>
+          </dl>
         </div>
       </div>
     </div>
