@@ -26,7 +26,7 @@ def test_health(client):
     body = client.get("/api/health").json()
     assert body["status"] == "ok"
     assert body["data_source"] == "simulator"
-    assert body["version"] == "1.1.0"
+    assert body["version"] == "1.2.0"
 
 
 def test_websocket_sends_snapshot_on_connect(client):
