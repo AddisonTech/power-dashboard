@@ -31,7 +31,7 @@ export const api = {
                       request(`/alarms/${encodeURIComponent(tag)}/shelve`, { method: 'POST', body: { minutes, reason, operator } }),
   unshelve:         (tag, operator)   => request(`/alarms/${encodeURIComponent(tag)}/unshelve`, { method: 'POST', body: { operator } }),
   triggerEvent:     (name)            => request(`/demo/events/${encodeURIComponent(name)}`, { method: 'POST' }),
-  getTriageEvent:   ()                => request('/triage/event'),
+  getTriageEvent:   (timeZone)        => request(`/triage/event?time_zone=${encodeURIComponent(timeZone || 'UTC')}`),
   // The first run imports the agent on the server, so allow longer than usual
   runTriage:        (window)          => request('/triage', { method: 'POST', body: window || {}, timeout: 60000 }),
 }

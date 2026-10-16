@@ -6,8 +6,18 @@
   "last_alarm": "2026-09-21T14:18:32.000+00:00",
   "settled": true
  },
+ "zone": {
+  "name": "America/New_York",
+  "labels": {
+   "-04:00": "EDT"
+  }
+ },
  "triage": {
-  "agent_version": "0.2.0",
+  "agent_version": "0.2.1",
+  "time_zone": {
+   "name": "America/New_York",
+   "label": "EDT"
+  },
   "window": {
    "start": "2026-09-21T14:13:19+00:00",
    "end": "2026-09-21T14:23:33+00:00"
@@ -49,7 +59,7 @@
     "band": "PROMOTED",
     "rule": "E-P1",
     "rule_name": "CAUSE_CONFIRMED_BY_TREND",
-    "finding": "the trend shows it past its limit in 55 of 67 samples around the alarm, 14:18:20 to 14:20:08, worst value 1, confirming the utility power failure; it ranks as the cause",
+    "finding": "the trend shows it past its limit in 55 of 67 samples around the alarm, 10:18:20 EDT to 10:20:08 EDT, worst value 1, confirming the utility power failure; it ranks as the cause",
     "preliminary_score": 0.088148,
     "evidence": {
      "kind": "discrete",
@@ -547,7 +557,7 @@
      ]
     },
     "rank": 1,
-    "reason": "Utility power failure at UTIL-1 is confirmed in the trend from 14:18:20 to 14:20:08 (about 108 seconds), and it accounts for 5 other alarms: UPS on battery at UPS-A, UPS on battery at UPS-B, generator start at GEN-1, ATS transfer to the emergency source at ATS-1, generator frequency dip at GEN-1.",
+    "reason": "Utility power failure at UTIL-1 is confirmed in the trend from 10:18:20 EDT to 10:20:08 EDT (about 108 seconds), and it accounts for 5 other alarms: UPS on battery at UPS-A, UPS on battery at UPS-B, generator start at GEN-1, ATS transfer to the emergency source at ATS-1, generator frequency dip at GEN-1.",
     "next_step": "Review UTIL-1: the utility voltage trend from loss to return, confirm the generator carried the load and both UPS batteries recovered their charge, and note the outage times for the utility report.",
     "written_by": "template, no model",
     "attempts": 1,
@@ -568,7 +578,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:20, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 10:18:20 EDT, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
       "preliminary_score": 0.175104,
       "evidence": {
        "kind": "discrete",
@@ -842,7 +852,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:20, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 10:18:20 EDT, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
       "preliminary_score": 0.175104,
       "evidence": {
        "kind": "discrete",
@@ -1116,7 +1126,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:28, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 10:18:28 EDT, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
       "preliminary_score": -0.086713,
       "evidence": {
        "kind": "discrete",
@@ -1390,7 +1400,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:32, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 10:18:32 EDT, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
       "preliminary_score": 0.000752,
       "evidence": {
        "kind": "discrete",
@@ -1664,7 +1674,7 @@
       "band": "EXPLAINED",
       "rule": "E-C1",
       "rule_name": "EXPLAINED_BY_CAUSE",
-      "finding": "starts at 14:18:32, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
+      "finding": "starts at 10:18:32 EDT, inside the UTILITY_FAILURE window on SIM-DC/UTIL-1/FAIL, so it is a consequence of that cause and collapses under it",
       "preliminary_score": 2.3e-05,
       "evidence": {
        "kind": "low",
@@ -1927,7 +1937,7 @@
   ],
   "nuisance": [],
   "unresolved": [],
-  "elapsed_s": 0.075,
+  "elapsed_s": 0.056,
   "writer": {
    "kind": "template",
    "name": "template, no model",
