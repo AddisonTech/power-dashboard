@@ -2,10 +2,11 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import Triage, { EvidenceChart, TriageItem, TriageResult, ZoneNote } from './Triage'
+import Triage, { EvidenceChart, GradingPanel, TriageItem, TriageResult, ZoneNote } from './Triage'
 import { clockIn, dateTimeIn } from '../lib/zone'
 import outage from '../test/triage-outage.json'
 import outageUtc from '../test/triage-outage-utc.json'
+import grading from '../test/triage-grading.json'
 
 const render = (el) => renderToStaticMarkup(el)
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
@@ -111,3 +112,33 @@ describe('Triage tab times', () => {
     expect(ny[2]).toBe(utc[2])
   })
 })
+
+describe('How this agent is graded', () => {
+  it('is a link that opens a panel', () => {
+    const html = render(<GradingPanel grading={grading} />)
+    expect(text(html)).toContain('How this agent is graded')
+    expect(html).not.toContain('tri-grades')
+  })
+
+  it('shows the template writer\'s pass rate for every grader, from the agent', () => {
+    const t = text(render(<GradingPanel grading={grading} initiallyOpen />))
+    expect(grading.graders.length).toBe(6)
+    for (const g of grading.graders) {
+      expect(t).toContain(`${g.passed} of ${g.applicable}`)
+    }
+    expect(t).toContain('Grounding')
+    expect(t).toContain(`agent ${grading.agent_version}`)
+    expect(t).toContain('The cases are synthetic.')
+  })
+
+  it('links to the Evals section of the agent\'s showcase', () => {
+    const html = render(<GradingPanel grading={grading} initiallyOpen />)
+    expect(html).toContain(`href="${grading.showcase}"`)
+    expect(grading.showcase).toMatch(/#evals$/)
+  })
+
+  it('shows nothing without grading data', () => {
+    expect(render(<GradingPanel grading={null} />)).toBe('')
+  })
+})
+

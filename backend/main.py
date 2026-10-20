@@ -282,6 +282,15 @@ def triage_event(request: Request, time_zone: Optional[str] = None):
     }}
 
 
+@app.get("/api/triage/grading")
+def triage_grading():
+    """How the triage agent's writer is graded: its eval pass rates, from the pinned agent."""
+    try:
+        return triage.grading()
+    except triage.AgentUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 class TriageRequest(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None

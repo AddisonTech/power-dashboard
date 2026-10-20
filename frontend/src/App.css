@@ -636,6 +636,17 @@ select:focus, input[type="text"]:focus { border-color: var(--accent); }
 .tri-intro { display: flex; flex-direction: column; gap: 10px; max-width: 80ch; color: var(--text-secondary); }
 
 .tri-list { display: flex; flex-direction: column; gap: 14px; }
+
+.tri-grading { padding-block: 12px; }
+.tri-grading-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-width: 90ch; }
+.tri-grades { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tri-grades li {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-elevated);
+}
+.tri-grade-name { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+.tri-grade-rate { font-size: 18px; font-weight: 650; color: var(--text-primary); }
+.tri-grading-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); align-self: flex-start; }
 .tri-item {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -750,6 +761,7 @@ select:focus, input[type="text"]:focus { border-color: var(--accent); }
 }
 
 @media (max-width: 720px) {
+  .tri-grades { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sidebar { display: none; }
   .mobile-only { display: inline-block; }
   .topbar { padding: 0 12px; height: 52px; }

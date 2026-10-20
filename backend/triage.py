@@ -4,7 +4,7 @@ The dashboard raises the alarm flood; the agent cuts it to a short ranked
 list. This module finds the window around the most recent alarm event,
 exports the alarm journal and trend history for it (triage_export.py), and
 hands that document to the agent, which is installed as a package pinned to
-its 0.2.2 release commit.
+its 0.3.0 release commit.
 
 Light enough for a free hosting tier: the agent is imported on first use
 rather than at startup, one run happens at a time, a window that has not
@@ -141,6 +141,39 @@ def run(now: float, start: Optional[float] = None, end: Optional[float] = None,
                 result["counts"].get("journal_entries", 0), result["counts"]["ranked_items"],
                 elapsed * 1000, result["writer"]["name"])
     return value
+
+
+GRADED_WRITER = "template"
+
+
+def grading() -> Dict[str, Any]:
+    """How the agent's writer is graded, read from the installed agent.
+
+    The agent ships the latest pass rates of its write-up eval suite in its
+    package. This passes on the template writer's, which is the writer the
+    dashboard runs, with what each grader checks and a link to the agent's
+    showcase page that explains them. Nothing here is computed or stored by
+    the dashboard, so the numbers change only when the pinned agent does.
+    """
+    service = _service()
+    if not hasattr(service, "eval_scorecard"):
+        raise AgentUnavailable("The installed triage agent has no eval scorecard")
+    card = service.eval_scorecard()
+    entry = card["writers"][GRADED_WRITER]
+    return {
+        "agent_version": service.__version__,
+        "writer": GRADED_WRITER,
+        "writer_name": entry["writer_name"],
+        "date": entry["date"],
+        "cases_run": entry["cases_run"],
+        "cases_passed": entry["cases_passed"],
+        "graders": [
+            {"name": name, "what": card["graders"].get(name, ""), **{k: g[k] for k in ("passed", "applicable", "rate")}}
+            for name, g in entry["graders"].items()
+        ],
+        "showcase": card["showcase"],
+        "synthetic": True,
+    }
 
 
 def clear_cache():
