@@ -35,7 +35,7 @@ from test_triage_export import drive  # noqa: E402
 def write(name: str, data) -> None:
     path = OUT / name
     with path.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(data, handle, indent=2, ensure_ascii=True)
+        json.dump(data, handle, indent=1, ensure_ascii=True)
         handle.write("\n")
     print("wrote %s" % path.relative_to(BACKEND.parent))
 
