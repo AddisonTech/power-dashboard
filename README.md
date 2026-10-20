@@ -58,12 +58,13 @@ What else is implemented:
 
 ISA 18.2 alarm handling keeps the list honest, but a utility outage still annunciates six alarms in twelve seconds: utility failure, both UPS systems on battery, the generator running, the transfer switch on the emergency source, and the generator frequency dip when the load lands. Only one of those is the thing that happened.
 
-The **Triage** tab hands the alarm journal and trend history for the window around the latest event to the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent), version 0.2.2, pinned in `backend/requirements.txt` to the commit that release was merged as, and shows what comes back:
+The **Triage** tab hands the alarm journal and trend history for the window around the latest event to the [BMS Alarm Triage Agent](https://github.com/AddisonTech/bms-alarm-triage-agent), version 0.3.0, pinned in `backend/requirements.txt` to the commit that release was merged as, and shows what comes back:
 
 - **Root cause first.** The agent's electrical rule set ranks the cause and folds its consequences under it. A utility failure explains UPS on battery, the generator start, the ATS transfer, and the frequency dip; a voltage sag explains the UPS ride through; a PDU overload explains its own lower stage and the load alarm on the UPS that feeds it; low power factor stands on its own.
 - **Trend evidence** for every item, the stretch it spent past its limit, and the rule that ranked it. The generator frequency dip is measured from the load step at the transfer, once the generator is at rated frequency, never across its run up from standstill: worst frequency, how far below 60 Hz, and how long until it was back within 0.5 Hz.
 - **A next step**, always a diagnostic one: a verb from a closed list, the item's own equipment as the target, never a control action.
 - **Who wrote the text.** A fixed template writes it from each item's own evidence. Claude Haiku writes it only when the server has `TRIAGE_ANTHROPIC_KEY` set, and the same checks apply to every reply either way. The hosted demo has no key, so the demo shows the template.
+- **How the agent is graded.** *How this agent is graded*, at the foot of the Triage tab, opens the template writer's pass rate on each of the agent's six write-up graders (grounding, root cause, escalation, uncertainty, next step, format), with a link to the [Evals section](https://addisontech.github.io/bms-alarm-triage-agent/#evals) of the agent's showcase page that explains them. The numbers come from the pinned agent package (`bms_triage_service.eval_scorecard()`), never from the dashboard, so they change only when the pin does. The agent's eval cases are synthetic.
 
 After a demo event finishes, a *Triage this event* button appears under the top bar. On the simulated utility outage the journal holds 24 entries (6 alarms, 6 returns, and 12 acknowledgements and suppressions) and the agent returns 1 ranked item, the utility failure, with the other 5 alarms under it. A run takes about 65 ms once the agent is loaded; the first one loads it on demand so startup stays fast on the free tier.
 
@@ -83,6 +84,7 @@ It is read only. The agent gets a copy of the journal and history for the window
 | `GET /api/export/journal?minutes=60` | Journal and trend history for the last N minutes (or `start` and `end`, ISO 8601), up to 24 hours |
 | `GET /api/triage/event` | The latest alarm event: first and last alarm and its window |
 | `POST /api/triage` | Run the agent on the latest event (or a `start` and `end` window) and return the ranked list |
+| `GET /api/triage/grading` | The pinned agent's eval pass rates for the template writer, per grader |
 
 ---
 
@@ -150,7 +152,7 @@ Demo scenarios:
 | API and WebSocket | Python 3.13, FastAPI 0.111, Uvicorn |
 | Storage | SQLite (WAL mode) |
 | Field protocol | Modbus TCP via pymodbus (optional) |
-| Alarm triage | BMS Alarm Triage Agent 0.2.2, pinned to its release commit |
+| Alarm triage | BMS Alarm Triage Agent 0.3.0, pinned to its release commit |
 | Front end | React 18, Vite 5, React Router 6 |
 | Charts and icons | Recharts (trend pages), inline SVG, Lucide |
 | Tests | pytest, FastAPI TestClient, Vitest |
@@ -191,7 +193,13 @@ cd backend && pip install -r requirements-dev.txt && python -m pytest -q
 cd frontend && npm test
 ```
 
-The backend suite covers the simulator (physical consistency, the outage sequence, every scenario), the alarm state machine (every ISA 18.2 transition, deadband, delays, shelving, suppression, KPIs), the WebSocket feed (snapshot, streaming, ping, live alarm updates after operator actions), the REST API, Modbus decoding, and the triage tie-in (the journal export checked against the agent's own parser, every demo scenario triaged from the real simulator, the event window, scan rate history during events, and the export and triage endpoints). The front end suite covers the feed reducer, URL handling, and the Triage tab (root cause first, consequences collapsed, trend evidence, the writer label).
+The backend suite covers the simulator (physical consistency, the outage sequence, every scenario), the alarm state machine (every ISA 18.2 transition, deadband, delays, shelving, suppression, KPIs), the WebSocket feed (snapshot, streaming, ping, live alarm updates after operator actions), the REST API, Modbus decoding, and the triage tie-in (the journal export checked against the agent's own parser, every demo scenario triaged from the real simulator, the event window, scan rate history during events, the export and triage endpoints, and the grading read from the agent package). The front end suite covers the feed reducer, URL handling, and the Triage tab (root cause first, consequences collapsed, trend evidence, the writer label, the grading panel).
+
+The Triage tab's test fixtures are a simulated outage triaged by the pinned agent. After changing the pin, rebuild them:
+
+```bash
+cd backend && python scripts/make_triage_fixtures.py
+```
 
 ---
 
@@ -251,8 +259,9 @@ backend/
   config.py             Settings, topology, master alarm database
   database.py           SQLite history and alarm journal
   triage_export.py      Alarm journal export in the triage agent's format, event window
-  triage.py             Runs the triage agent on the latest event
+  triage.py             Runs the triage agent on the latest event, and reads its grading
   modbus_source.py      Modbus TCP polling (optional)
+  scripts/              Rebuilds the Triage tab's test fixtures from the pinned agent
   tests/
 frontend/
   src/services/         WebSocket feed, REST client

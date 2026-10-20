@@ -21,7 +21,7 @@ def test_export_returns_the_journal_format(client):
     assert res.headers["content-disposition"].startswith('attachment; filename="alarm-journal-')
     doc = res.json()
     assert doc["format"] == "bms-triage-journal" and doc["version"] == 1
-    assert doc["source"] == "power-dashboard 1.2.2"
+    assert doc["source"] == "power-dashboard 1.3.0"
     parsed = agent_journal.parse(doc)
     assert parsed.points and parsed.series
 
@@ -126,10 +126,10 @@ def test_the_agent_is_pinned_to_one_release():
     assert re.fullmatch(r"v\d+\.\d+\.\d+|[0-9a-f]{40}", ref)
 
 
-def test_the_installed_agent_is_0_2():
+def test_the_installed_agent_is_0_3():
     import bms_alarm_triage
 
-    assert bms_alarm_triage.__version__ == "0.2.2"
+    assert bms_alarm_triage.__version__ == "0.3.0"
 
 
 @pytest.mark.parametrize("zone_name", ["America/New_York", "UTC"])
@@ -158,3 +158,27 @@ def test_the_event_and_the_text_use_the_viewers_zone(client, zone_name):
 def test_a_bad_zone_is_a_400(client):
     assert client.post("/api/triage", json={"time_zone": "Mars/Olympus"}).status_code == 400
     assert client.get("/api/triage/event", params={"time_zone": "Mars/Olympus"}).status_code == 400
+
+
+def test_the_grading_comes_from_the_pinned_agent(client):
+    import bms_triage_service
+
+    res = client.get("/api/triage/grading")
+    assert res.status_code == 200
+    body = res.json()
+    entry = bms_triage_service.eval_scorecard()["writers"]["template"]
+    assert body["writer"] == "template"
+    assert body["agent_version"] == bms_triage_service.__version__
+    assert body["date"] == entry["date"]
+    assert [g["name"] for g in body["graders"]] == list(entry["graders"])
+    for grader in body["graders"]:
+        assert grader["rate"] == entry["graders"][grader["name"]]["rate"]
+        assert grader["passed"] == entry["graders"][grader["name"]]["passed"]
+        assert grader["what"]
+    assert body["showcase"].endswith("#evals")
+    assert body["synthetic"] is True
+
+
+def test_grading_without_a_scorecard_is_a_503(client, monkeypatch):
+    monkeypatch.setattr(triage, "_service", lambda: object())
+    assert client.get("/api/triage/grading").status_code == 503

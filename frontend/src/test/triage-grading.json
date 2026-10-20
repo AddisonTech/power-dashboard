@@ -1,0 +1,54 @@
+{
+ "agent_version": "0.3.0",
+ "writer": "template",
+ "writer_name": "template, no model",
+ "date": "2026-10-20",
+ "cases_run": 58,
+ "cases_passed": 55,
+ "graders": [
+  {
+   "name": "grounding",
+   "what": "Every point name, number and time on a card has to be in the evidence the writer was given. Anything invented, converted or carried in from elsewhere fails.",
+   "passed": 40,
+   "applicable": 40,
+   "rate": 1.0
+  },
+  {
+   "name": "root_cause",
+   "what": "The write-up names the right cause, says what is wrong with it from the evidence, and never turns a consequence into the cause. With no cause in the evidence, it names none.",
+   "passed": 38,
+   "applicable": 40,
+   "rate": 0.95
+  },
+  {
+   "name": "escalation",
+   "what": "What should escalate gets a card and nothing else does, and no card talks its own escalation down as nuisance or nothing to act on.",
+   "passed": 55,
+   "applicable": 58,
+   "rate": 0.9483
+  },
+  {
+   "name": "uncertainty",
+   "what": "Where evidence is missing or thin the write-up says so: unsupported items stay unresolved, thin cards say what they rest on, and no card guesses a diagnosis, claims certainty, or rules out what it could not check.",
+   "passed": 45,
+   "applicable": 45,
+   "rate": 1.0
+  },
+  {
+   "name": "next_step",
+   "what": "Every card has a next step, it is about that equipment and what the point measures, and it is read only: it observes, and never tells anyone to change, reset, acknowledge or operate anything.",
+   "passed": 40,
+   "applicable": 40,
+   "rate": 1.0
+  },
+  {
+   "name": "format",
+   "what": "Each reply passes the agent's Pydantic schema on the first try, and the reason and the next step are one sentence each, as the prompt asks.",
+   "passed": 40,
+   "applicable": 40,
+   "rate": 1.0
+  }
+ ],
+ "showcase": "https://addisontech.github.io/bms-alarm-triage-agent/#evals",
+ "synthetic": true
+}

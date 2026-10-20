@@ -13,7 +13,7 @@
   }
  },
  "triage": {
-  "agent_version": "0.2.2",
+  "agent_version": "0.3.0",
   "time_zone": {
    "name": "America/New_York",
    "label": "EDT"
@@ -1957,7 +1957,7 @@
   ],
   "nuisance": [],
   "unresolved": [],
-  "elapsed_s": 0.046,
+  "elapsed_s": 0.053,
   "writer": {
    "kind": "template",
    "name": "template, no model",
@@ -1965,6 +1965,6 @@
   },
   "read_only": true
  },
- "elapsed_ms": 64.0,
+ "elapsed_ms": 87.7,
  "cached": false
 }

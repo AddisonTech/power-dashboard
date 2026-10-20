@@ -136,3 +136,23 @@ export function chartGeometry(evidence, width, height, pad = { left: 6, right: 6
 export function eventFinished(previous, current) {
   return !!(previous && !current)
 }
+
+// How the agent's writer is graded, from its eval suite (GET /api/triage/grading)
+export const GRADERS = {
+  grounding: 'Grounding',
+  root_cause: 'Root cause',
+  escalation: 'Escalation',
+  uncertainty: 'Uncertainty',
+  next_step: 'Next step',
+  format: 'Format',
+}
+
+export function graderTitle(name) {
+  return GRADERS[name] || capitalize((name || '').replace(/_/g, ' '))
+}
+
+export function passRate(rate) {
+  if (rate == null) return '--'
+  const pct = rate * 100
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(1)}%`
+}

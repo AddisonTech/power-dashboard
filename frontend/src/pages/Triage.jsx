@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Download, ListOrdered, Play, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Download, ExternalLink, GraduationCap, ListOrdered, Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { api, exportJournalUrl } from '../services/api'
 import { PriorityBadge } from '../components/Badges'
 import { clockIn, dateTimeIn, viewerZone, zoneLabel } from '../lib/zone'
 import {
-  capitalize, chartGeometry, evidenceText, floodParts, itemWriter, reduction, ruleLabel, writerLabel,
+  capitalize, chartGeometry, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction, ruleLabel,
+  writerLabel,
 } from '../lib/triage'
 
 const CHART_W = 320
@@ -97,6 +98,42 @@ export function TriageItem({ item, zone }) {
   )
 }
 
+// The agent's own eval results for the writer the dashboard runs. Every number
+// comes from the pinned agent package through GET /api/triage/grading.
+export function GradingPanel({ grading, initiallyOpen = false }) {
+  const [open, setOpen] = useState(initiallyOpen)
+  if (!grading) return null
+  return (
+    <div className="card tri-grading">
+      <button className="tri-cq-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <GraduationCap size={15} /> How this agent is graded
+      </button>
+      {open && (
+        <div className="tri-grading-body">
+          <p className="muted small">
+            The agent's eval suite grades what its {grading.writer} writer puts on each card against a known right
+            answer: {grading.cases_passed} of {grading.cases_run} cases passed every grader in the run of{' '}
+            {grading.date}, agent {grading.agent_version}. The cases are synthetic.
+          </p>
+          <ul className="tri-grades">
+            {grading.graders.map(g => (
+              <li key={g.name} title={g.what}>
+                <span className="tri-grade-name">{graderTitle(g.name)}</span>
+                <span className="tri-grade-rate mono">{passRate(g.rate)}</span>
+                <span className="muted small">{g.passed} of {g.applicable}</span>
+              </li>
+            ))}
+          </ul>
+          <a className="tri-grading-link small" href={grading.showcase} target="_blank" rel="noreferrer">
+            What each grader checks, and the failures it found <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // The zone the agent wrote its text in, with the labels for its offsets
 function zoneOf(data) {
   return { name: data.triage.time_zone?.name || data.zone?.name || 'UTC', labels: data.zone?.labels || {} }
@@ -183,6 +220,7 @@ export default function Triage() {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [grading, setGrading] = useState(null)
   const autoRan = useRef(false)
 
   const loadEvent = useCallback(() => {
@@ -207,6 +245,7 @@ export default function Triage() {
   }, [timeZone])
 
   useEffect(() => { loadEvent() }, [loadEvent])
+  useEffect(() => { api.getTriageGrading().then(setGrading).catch(() => setGrading(null)) }, [])
 
   // Arriving from the "Triage this event" button runs straight away
   useEffect(() => {
@@ -271,6 +310,8 @@ export default function Triage() {
           </p>
         </div>
       )}
+
+      <GradingPanel grading={grading} />
     </div>
   )
 }

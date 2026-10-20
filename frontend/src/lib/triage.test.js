@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chartGeometry, dipText, eventFinished, evidenceText, floodParts, itemWriter, reduction, ruleLabel, seconds, valueText, writerLabel,
+  chartGeometry, dipText, eventFinished, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction, ruleLabel,
+  seconds, valueText, writerLabel,
 } from './triage'
 import outage from '../test/triage-outage.json'
 import outageUtc from '../test/triage-outage-utc.json'
@@ -95,3 +96,18 @@ describe('frequency dip', () => {
     expect(evidenceText(c.evidence, outage.zone)).toBe(dipText(c.evidence.dip, outage.zone))
   })
 })
+
+describe('grading', () => {
+  it('names each grader in plain words', () => {
+    expect(graderTitle('root_cause')).toBe('Root cause')
+    expect(graderTitle('next_step')).toBe('Next step')
+    expect(graderTitle('something_new')).toBe('Something new')
+  })
+
+  it('writes a pass rate as a percentage', () => {
+    expect(passRate(1)).toBe('100%')
+    expect(passRate(0.9483)).toBe('94.8%')
+    expect(passRate(null)).toBe('--')
+  })
+})
+
