@@ -6,8 +6,8 @@ commits.
 ## 1.3.0 - 2026-10-20
 
 - **Triage agent 0.3.0.** `backend/requirements.txt` pins the agent to
-  the commit its 0.3.0 release was merged as. 0.3.0 adds an eval suite
-  that grades what the agent's writers put on each card, and ships the
+  the commit its 0.3.0 release was merged as (`cc5f707`). 0.3.0 adds an
+  eval suite that grades what the agent's writers put on each card, and ships the
   latest pass rates in the package.
 - **How this agent is graded.** A small panel at the foot of the Triage
   tab: the template writer's pass rate on each of the agent's six graders
