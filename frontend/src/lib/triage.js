@@ -156,3 +156,11 @@ export function passRate(rate) {
   const pct = rate * 100
   return `${Number.isInteger(pct) ? pct : pct.toFixed(1)}%`
 }
+
+// A React key for one entry. Since agent 0.3.1 one point can have two
+// episodes, each its own card, so a point alone is not unique: an entry with
+// a start time is keyed by point and start, and one without (the nuisance
+// and unresolved lists carry none) by point and its place in the list.
+export function episodeKey(entry, index) {
+  return entry.start ? `${entry.point}@${entry.start}` : `${entry.point}#${index}`
+}

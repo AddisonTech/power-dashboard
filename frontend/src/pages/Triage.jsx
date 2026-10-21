@@ -5,8 +5,8 @@ import { api, exportJournalUrl } from '../services/api'
 import { PriorityBadge } from '../components/Badges'
 import { clockIn, dateTimeIn, viewerZone, zoneLabel } from '../lib/zone'
 import {
-  capitalize, chartGeometry, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction, ruleLabel,
-  writerLabel,
+  capitalize, chartGeometry, episodeKey, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction,
+  ruleLabel, writerLabel,
 } from '../lib/triage'
 
 const CHART_W = 320
@@ -38,8 +38,8 @@ function Consequences({ items, zone }) {
       </button>
       {open && (
         <ul className="tri-cq-list">
-          {items.map(c => (
-            <li key={c.point}>
+          {items.map((c, i) => (
+            <li key={episodeKey(c, i)}>
               <div className="tri-cq-head">
                 <PriorityBadge priority={c.priority} compact />
                 <span className="tri-cq-label">{capitalize(c.label)}</span>
@@ -185,18 +185,18 @@ export function TriageResult({ data }) {
         <div className="card empty-state"><p>No item in this window needed escalating.</p></div>
       )}
       <div className="tri-list">
-        {result.items.map(item => <TriageItem key={item.point} item={item} zone={zone} />)}
+        {result.items.map((item, i) => <TriageItem key={episodeKey(item, i)} item={item} zone={zone} />)}
       </div>
 
       {(result.nuisance.length > 0 || result.unresolved.length > 0) && (
         <div className="card">
           <div className="card-head"><h3>Set aside</h3></div>
           <ul className="tri-aside">
-            {result.nuisance.map(n => (
-              <li key={n.point}><span className="mono small">{n.point}</span> <span className="muted small">{n.finding}</span></li>
+            {result.nuisance.map((n, i) => (
+              <li key={episodeKey(n, i)}><span className="mono small">{n.point}</span> <span className="muted small">{n.finding}</span></li>
             ))}
-            {result.unresolved.map(u => (
-              <li key={u.point}><span className="mono small">{u.point}</span> <span className="muted small">{u.reason}</span></li>
+            {result.unresolved.map((u, i) => (
+              <li key={episodeKey(u, i)}><span className="mono small">{u.point}</span> <span className="muted small">{u.reason}</span></li>
             ))}
           </ul>
         </div>

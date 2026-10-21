@@ -142,3 +142,61 @@ describe('How this agent is graded', () => {
   })
 })
 
+// Since agent 0.3.1 one point can have two episodes, each escalated as its
+// own card: a UPS that goes to battery, comes back, and goes again later.
+const cause = outage.triage.items[0]
+const battery = cause.consequences.find(c => c.point.endsWith('/UPS-B/ONBATT'))
+const episode = (start) => ({
+  ...cause, ...battery, rank: 1, rule: 'E-P2', consequences: [], start,
+  reason: `UPS on battery at UPS-B from ${start}.`, next_step: 'Inspect UPS-B: the input breaker.',
+  written_by: 'template, no model',
+})
+const twoEpisodes = {
+  ...outage,
+  triage: {
+    ...outage.triage,
+    items: [episode('2026-09-21T14:18:20+00:00'), { ...episode('2026-09-21T14:28:20+00:00'), rank: 2 }],
+    nuisance: [
+      { point: battery.point, signal: 'ups_on_battery', label: 'UPS on battery', rule: 'E-D1', finding: 'first' },
+      { point: battery.point, signal: 'ups_on_battery', label: 'UPS on battery', rule: 'E-D1', finding: 'second' },
+    ],
+    unresolved: [],
+  },
+}
+
+// The keys React is handed for the children of the element with this class
+function keysUnder(element, className) {
+  if (!element || typeof element !== 'object') return null
+  const props = element.props || {}
+  if (typeof props.className === 'string' && props.className.split(' ').includes(className)) {
+    return [props.children].flat(Infinity).filter(c => c && typeof c === 'object').map(c => c.key)
+  }
+  for (const child of [props.children].flat(Infinity)) {
+    const found = keysUnder(child, className)
+    if (found) return found
+  }
+  return null
+}
+
+describe('Two episodes on one point', () => {
+  it('renders both cards', () => {
+    const html = render(<TriageResult data={twoEpisodes} />)
+    expect(html.match(/class="tri-item /g)).toHaveLength(2)
+    expect(text(html)).toContain('from 2026-09-21T14:18:20+00:00')
+    expect(text(html)).toContain('from 2026-09-21T14:28:20+00:00')
+  })
+
+  it('gives each card its own key, by point and episode start', () => {
+    const keys = keysUnder(TriageResult({ data: twoEpisodes }), 'tri-list')
+    expect(keys).toEqual([
+      `${battery.point}@2026-09-21T14:18:20+00:00`,
+      `${battery.point}@2026-09-21T14:28:20+00:00`,
+    ])
+  })
+
+  it('keeps set-aside entries on one point apart too', () => {
+    const keys = keysUnder(TriageResult({ data: twoEpisodes }), 'tri-aside')
+    expect(new Set(keys).size).toBe(2)
+  })
+})
+
