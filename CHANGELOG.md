@@ -3,6 +3,30 @@
 Releases before 1.3.0 are recorded in the git history and their merge
 commits.
 
+## 1.3.1 - 2026-10-21
+
+- **Triage agent 0.3.1.** `backend/requirements.txt` pins the agent to
+  `7eb8aff`, its main branch just after the 0.3.1 merge (`8e6ce6e`), which
+  adds the committed Haiku eval results and the scorecard that goes with
+  them. 0.3.1 fixes two pipeline bugs: a frequency dip with no utility
+  failure now goes under the ATS transfer whose load step caused it, and a
+  point that alarms again after it cleared becomes its own episode.
+- **One card per episode.** Since 0.3.1 one point can have two escalated
+  episodes, such as a UPS that goes to battery with an outage and again
+  later on its own. The Triage tab keyed its cards, consequences and set
+  aside entries by point alone, so two such cards would have shared a key.
+  They are keyed by point and episode start now, or by point and place in
+  the list where an entry has no start.
+- **Grading panel.** It reads the new scorecard from the pinned package:
+  the template writer passes all six graders on all 58 cases. No code
+  change was needed for that.
+- **Fixtures.** Rebuilt with `backend/scripts/make_triage_fixtures.py`.
+  The outage fixtures differ from 1.3.0 only in the agent version and run
+  timings: the utility failure first, five consequences collapsed, the same
+  measured dip (58.88 Hz, 1.12 Hz below 60, back within 0.5 Hz in 2 s).
+
+Verification: backend 85 tests, front end 49 tests, production build.
+
 ## 1.3.0 - 2026-10-20
 
 - **Triage agent 0.3.0.** `backend/requirements.txt` pins the agent to

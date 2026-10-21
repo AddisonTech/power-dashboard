@@ -4,7 +4,7 @@ The dashboard raises the alarm flood; the agent cuts it to a short ranked
 list. This module finds the window around the most recent alarm event,
 exports the alarm journal and trend history for it (triage_export.py), and
 hands that document to the agent, which is installed as a package pinned to
-its 0.3.0 release commit.
+a commit of its 0.3.1 release.
 
 Light enough for a free hosting tier: the agent is imported on first use
 rather than at startup, one run happens at a time, a window that has not
