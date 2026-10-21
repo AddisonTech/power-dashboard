@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chartGeometry, dipText, eventFinished, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction, ruleLabel,
-  seconds, valueText, writerLabel,
+  chartGeometry, dipText, episodeKey, eventFinished, evidenceText, floodParts, graderTitle, itemWriter, passRate, reduction,
+  ruleLabel, seconds, valueText, writerLabel,
 } from './triage'
 import outage from '../test/triage-outage.json'
 import outageUtc from '../test/triage-outage-utc.json'
@@ -108,6 +108,19 @@ describe('grading', () => {
     expect(passRate(1)).toBe('100%')
     expect(passRate(0.9483)).toBe('94.8%')
     expect(passRate(null)).toBe('--')
+  })
+})
+
+describe('episodeKey', () => {
+  it('tells two episodes on one point apart by their start', () => {
+    const a = episodeKey({ point: 'SIM-DC/UPS-B/ONBATT', start: '2026-09-21T14:18:20+00:00' }, 0)
+    const b = episodeKey({ point: 'SIM-DC/UPS-B/ONBATT', start: '2026-09-21T14:28:20+00:00' }, 1)
+    expect(a).not.toBe(b)
+    expect(a).toBe('SIM-DC/UPS-B/ONBATT@2026-09-21T14:18:20+00:00')
+  })
+
+  it('falls back to the place in the list when there is no start', () => {
+    expect(episodeKey({ point: 'P' }, 0)).not.toBe(episodeKey({ point: 'P' }, 1))
   })
 })
 

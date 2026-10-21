@@ -1,10 +1,10 @@
 {
- "agent_version": "0.3.0",
+ "agent_version": "0.3.1",
  "writer": "template",
  "writer_name": "template, no model",
- "date": "2026-10-20",
+ "date": "2026-10-21",
  "cases_run": 58,
- "cases_passed": 55,
+ "cases_passed": 58,
  "graders": [
   {
    "name": "grounding",
@@ -16,16 +16,16 @@
   {
    "name": "root_cause",
    "what": "The write-up names the right cause, says what is wrong with it from the evidence, and never turns a consequence into the cause. With no cause in the evidence, it names none.",
-   "passed": 38,
+   "passed": 40,
    "applicable": 40,
-   "rate": 0.95
+   "rate": 1.0
   },
   {
    "name": "escalation",
    "what": "What should escalate gets a card and nothing else does, and no card talks its own escalation down as nuisance or nothing to act on.",
-   "passed": 55,
+   "passed": 58,
    "applicable": 58,
-   "rate": 0.9483
+   "rate": 1.0
   },
   {
    "name": "uncertainty",

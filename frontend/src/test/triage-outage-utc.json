@@ -13,7 +13,7 @@
   }
  },
  "triage": {
-  "agent_version": "0.3.0",
+  "agent_version": "0.3.1",
   "time_zone": {
    "name": "UTC",
    "label": "UTC"
@@ -1957,7 +1957,7 @@
   ],
   "nuisance": [],
   "unresolved": [],
-  "elapsed_s": 0.054,
+  "elapsed_s": 0.037,
   "writer": {
    "kind": "template",
    "name": "template, no model",
@@ -1965,6 +1965,6 @@
   },
   "read_only": true
  },
- "elapsed_ms": 82.4,
+ "elapsed_ms": 50.4,
  "cached": false
 }
